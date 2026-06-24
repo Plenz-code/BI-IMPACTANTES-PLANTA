@@ -1,9 +1,6 @@
-
 """
-update_bi.py — versão sem Azure
-Lê a planilha planilha.xlsx do próprio repositório
-(enviada pelo Power Automate) e atualiza o index.html.
-Não precisa de nenhuma credencial ou acesso externo.
+update_bi.py — versão completa sem Azure
+Lê planilha.xlsx do repositório e atualiza o index.html.
 """
 
 import json, re, warnings, datetime, io
@@ -14,7 +11,6 @@ XLSX_FILE = 'planilha.xlsx'
 HTML_FILE = 'index.html'
 ABA_MAP   = {'Britador': 'brit', 'Linha 1': 'l1', 'Linha 2': 'l2', 'Linha 3': 'l3'}
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
 def fmt_date(v):
     if isinstance(v, (datetime.datetime, datetime.date)):
         d = v.date() if isinstance(v, datetime.datetime) else v
@@ -36,7 +32,6 @@ def to_mins(v):
 def clean(v):
     return str(v).replace('\xa0', ' ').strip() if v else ''
 
-# ── Processamento ─────────────────────────────────────────────────────────────
 def process():
     wb = load_workbook(XLSX_FILE, data_only=True)
     print(f"✓ Planilha carregada: {XLSX_FILE}")
@@ -50,7 +45,7 @@ def process():
 
     for sheet, key in ABA_MAP.items():
         if sheet not in wb.sheetnames:
-            print(f"  ⚠ Aba '{sheet}' não encontrada, pulando.")
+            print(f"  Aba '{sheet}' não encontrada, pulando.")
             continue
         ws = wb[sheet]
         ultima_data = None
@@ -98,7 +93,6 @@ def process():
                             balanca[key][ultima_data] = valor
                     turno_soma = 0
 
-    # Complementa com aba Resumo
     if 'Resumo' in wb.sheetnames:
         for row in wb['Resumo'].iter_rows(min_row=4, max_row=33, values_only=True):
             dr = row[1]
@@ -109,10 +103,8 @@ def process():
                 v = row[i]
                 if isinstance(v, (int, float)) and v > 0 and dt not in balanca[k]:
                     balanca[k][dt] = float(v)
-
     wb.close()
 
-    # Builds
     def build_daily(pm, hm):
         out = {}
         for d, p in sorted(pm.items()):
@@ -156,7 +148,26 @@ def process():
     prod_planta = {'resumo': resumo, 'prod_linha': prod_linha, 'material_tot': material_tot}
     return results, prod_planta
 
-# ── Atualiza o HTML ───────────────────────────────────────────────────────────
+def inject_auto_init(html):
+    AUTO_INIT = """<!-- AUTO_INIT_START -->
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+  if(!R_KPI||!R_KPI.l1||!Object.keys(R_KPI.l1).length)return;
+  ['brit','l1','l2','l3'].forEach(function(k){
+    DADOS[k+'_daily']={};
+    Object.entries(R_KPI[k]||{}).forEach(function(e){DADOS[k+'_daily'][e[0]]={prod:e[1].hp,parada:e[1].hs};});
+    var acc={};
+    Object.values(R_MOT[k]||{}).forEach(function(l){(l||[]).forEach(function(i){acc[i[0]]=(acc[i[0]]||0)+i[1];});});
+    DADOS[k].top_motivos=Object.entries(acc).map(function(e){return[e[0],e[1]];}).sort(function(a,b){return b[1]-a[1];}).slice(0,14);
+  });
+  setTimeout(function(){var b=document.getElementById('btnDash');if(b&&typeof goTab==='function')goTab('dashboard',b);},150);
+});
+</script>
+<!-- AUTO_INIT_END -->"""
+    html = re.sub(r'<!-- AUTO_INIT_START -->[\s\S]*?<!-- AUTO_INIT_END -->', '', html)
+    html = html.replace('</body>', AUTO_INIT + '\n</body>', 1)
+    return html
+
 def update_html(results, prod_planta):
     with open(HTML_FILE, encoding='utf-8') as f:
         html = f.read()
@@ -186,44 +197,3 @@ if __name__ == '__main__':
     print("📝 Atualizando index.html...")
     update_html(results, prod_planta)
     print("✅ Concluído!")
-
-
-# ── Injeta auto-inicialização ─────────────────────────────────────────────────
-def inject_auto_init(html):
-    """
-    Injeta script que carrega os dados automaticamente ao abrir o BI,
-    sem precisar fazer upload manual da planilha.
-    Remove injeção anterior se existir (para não duplicar).
-    """
-    AUTO_INIT = """<!-- AUTO_INIT_START -->
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  if (!R_KPI || !R_KPI.l1 || !Object.keys(R_KPI.l1).length) return;
-  ['brit','l1','l2','l3'].forEach(function(k) {
-    DADOS[k+'_daily'] = {};
-    Object.entries(R_KPI[k] || {}).forEach(function(e) {
-      DADOS[k+'_daily'][e[0]] = { prod: e[1].hp, parada: e[1].hs };
-    });
-    var acc = {};
-    Object.values(R_MOT[k] || {}).forEach(function(lista) {
-      (lista || []).forEach(function(item) {
-        acc[item[0]] = (acc[item[0]] || 0) + item[1];
-      });
-    });
-    DADOS[k].top_motivos = Object.entries(acc)
-      .map(function(e) { return [e[0], e[1]]; })
-      .sort(function(a, b) { return b[1] - a[1]; })
-      .slice(0, 14);
-  });
-  setTimeout(function() {
-    var btn = document.getElementById('btnDash');
-    if (btn && typeof goTab === 'function') goTab('dashboard', btn);
-  }, 150);
-});
-</script>
-<!-- AUTO_INIT_END -->"""
-
-    import re
-    html = re.sub(r'<!-- AUTO_INIT_START -->[\s\S]*?<!-- AUTO_INIT_END -->', '', html)
-    html = html.replace('</body>', AUTO_INIT + '\n</body>', 1)
-    return html
