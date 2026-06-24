@@ -1,0 +1,48 @@
+# .github/workflows/update_bi.yml
+#
+# Roda automaticamente quando o Power Automate commita
+# a planilha.xlsx atualizada no repositório.
+# Não precisa de Azure nem de credenciais do SharePoint.
+
+name: Atualizar BI
+
+on:
+  push:
+    paths:
+      - 'planilha.xlsx'   # dispara SOMENTE quando a planilha mudar
+  workflow_dispatch:       # permite rodar manualmente pelo GitHub
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependências
+        run: pip install openpyxl
+
+      - name: Processar planilha e atualizar BI
+        run: python scripts/update_bi.py
+
+      - name: Publicar index.html atualizado
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name  "github-actions[bot]"
+          git add index.html
+          if git diff --staged --quiet; then
+            echo "Sem mudanças nos dados."
+          else
+            TIMESTAMP=$(date -u '+%d/%m/%Y %H:%M UTC')
+            git commit -m "🔄 BI atualizado — ${TIMESTAMP}"
+            git push
+            echo "✅ BI publicado."
+          fi
