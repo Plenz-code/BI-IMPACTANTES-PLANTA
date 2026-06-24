@@ -1,3 +1,4 @@
+
 """
 update_bi.py — versão sem Azure
 Lê a planilha planilha.xlsx do próprio repositório
@@ -173,9 +174,11 @@ def update_html(results, prod_planta):
     html = re.sub(r'(let|const)\s+PROD_PLANTA\s*=\s*\{[\s\S]*?\};',
         f"let PROD_PLANTA = {js(prod_planta)};", html, count=1)
 
+    html = inject_auto_init(html)
+
     with open(HTML_FILE, 'w', encoding='utf-8') as f:
         f.write(html)
-    print(f"✓ {HTML_FILE} atualizado")
+    print(f"✓ {HTML_FILE} atualizado com auto-inicialização")
 
 if __name__ == '__main__':
     print("⚙  Processando planilha...")
@@ -183,3 +186,44 @@ if __name__ == '__main__':
     print("📝 Atualizando index.html...")
     update_html(results, prod_planta)
     print("✅ Concluído!")
+
+
+# ── Injeta auto-inicialização ─────────────────────────────────────────────────
+def inject_auto_init(html):
+    """
+    Injeta script que carrega os dados automaticamente ao abrir o BI,
+    sem precisar fazer upload manual da planilha.
+    Remove injeção anterior se existir (para não duplicar).
+    """
+    AUTO_INIT = """<!-- AUTO_INIT_START -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  if (!R_KPI || !R_KPI.l1 || !Object.keys(R_KPI.l1).length) return;
+  ['brit','l1','l2','l3'].forEach(function(k) {
+    DADOS[k+'_daily'] = {};
+    Object.entries(R_KPI[k] || {}).forEach(function(e) {
+      DADOS[k+'_daily'][e[0]] = { prod: e[1].hp, parada: e[1].hs };
+    });
+    var acc = {};
+    Object.values(R_MOT[k] || {}).forEach(function(lista) {
+      (lista || []).forEach(function(item) {
+        acc[item[0]] = (acc[item[0]] || 0) + item[1];
+      });
+    });
+    DADOS[k].top_motivos = Object.entries(acc)
+      .map(function(e) { return [e[0], e[1]]; })
+      .sort(function(a, b) { return b[1] - a[1]; })
+      .slice(0, 14);
+  });
+  setTimeout(function() {
+    var btn = document.getElementById('btnDash');
+    if (btn && typeof goTab === 'function') goTab('dashboard', btn);
+  }, 150);
+});
+</script>
+<!-- AUTO_INIT_END -->"""
+
+    import re
+    html = re.sub(r'<!-- AUTO_INIT_START -->[\s\S]*?<!-- AUTO_INIT_END -->', '', html)
+    html = html.replace('</body>', AUTO_INIT + '\n</body>', 1)
+    return html
