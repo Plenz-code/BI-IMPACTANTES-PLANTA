@@ -1,0 +1,2406 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BI Planta de Beneficiamento — Santa Felicidade</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0f1117; color: #e8e8e8; font-family: 'Segoe UI', Arial, sans-serif; min-width: 900px; overflow-x: auto; }
+.header { background: #0a0c12; border-bottom: 2px solid #e8a020; padding: 14px 20px 0; }
+.dash-title { text-align: center; color: #e8a020; font-size: 22px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 3px; }
+.dash-subtitle { text-align: center; color: #c0c0c0; font-size: 12px; margin-bottom: 12px; }
+.tabs { display: flex; }
+.tab-btn { padding: 9px 26px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; border: none; background: transparent; color: #aaa; border-bottom: 3px solid transparent; transition: all 0.2s; }
+.tab-btn:hover { color: #e8a020; }
+.tab-btn.active { color: #e8a020; border-bottom: 3px solid #e8a020; }
+.tab-content { display: none; padding: 16px; }
+.tab-content.active { display: block; }
+.secao-bar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+.secao-btn { padding: 6px 18px; border-radius: 20px; border: 1px solid #444; background: transparent; color: #bbb; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.secao-btn:hover { border-color: #e8a020; color: #e8a020; }
+.secao-btn.active { background: #e8a020; color: #0f1117; border-color: #e8a020; }
+.kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 10px; width: 100%; }
+.kpi-card { background: #131620; border: 1px solid #252838; border-radius: 6px; padding: 12px 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; border-top: 3px solid var(--cor, #e8a020); min-width: 0; }
+.kpi-label { font-size: 11px; color: #d0d0d0; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700; margin-bottom: 6px; width: 100%; text-align: center; display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap; }
+.kpi-value { font-size: 22px; font-weight: 700; text-align: center; }
+.kpi-sub { font-size: 11px; color: #b0b0b0; margin-top: 4px; text-align: center; font-weight: 500; }
+.charts-grid-3 { display: grid; grid-template-columns: 1.6fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.charts-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.chart-card { background: #131620; border-radius: 6px; padding: 10px 12px; border: 1px solid #252838; }
+.chart-title { font-size: 13px; color: #e8a020; font-weight: 700; margin-bottom: 8px; text-align: center; }
+.legend-row { display: flex; gap: 14px; margin-top: 6px; font-size: 11px; justify-content: center; color: #d0d0d0; }
+.legend-row span { display: flex; align-items: center; gap: 4px; }
+.imp-section { background: #131620; border-radius: 6px; padding: 10px 12px; border: 1px solid #252838; margin-bottom: 10px; }
+.imp-header { font-size: 13px; color: #e8a020; font-weight: 700; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+.imp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.imp-table th { background: #e8a020; color: #0f1117; padding: 7px 10px; text-align: left; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+.imp-table td { padding: 8px 10px; border-bottom: 1px solid #1e2235; color: #e0e0e0; vertical-align: middle; }
+.imp-table tr:hover td { background: #1a1d2e; }
+.bar-bg { background: #1e2235; border-radius: 3px; height: 8px; overflow: hidden; }
+.bar-fill { height: 8px; border-radius: 3px; }
+.rank { width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
+.rank-1 { background: #b8960c; color: #fff; }
+.rank-2 { background: #666; color: #fff; }
+.rank-3 { background: #7a4820; color: #fff; }
+.rank-n { background: #1e2235; color: #ccc; }
+.alert-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.alert-table th { background: #e8a020; color: #0f1117; padding: 6px 10px; text-align: left; font-weight: 700; font-size: 10px; text-transform: uppercase; }
+.alert-table td { padding: 5px 10px; border-bottom: 1px solid #1e2235; color: #ddd; }
+.alert-table tr:hover td { background: #1a1d2e; }
+.upload-box { max-width: 580px; margin: 36px auto; }
+.upload-zone { border: 2px dashed #e8a020; border-radius: 8px; padding: 36px 24px; text-align: center; cursor: pointer; background: #131620; transition: background 0.2s; }
+.upload-zone:hover, .upload-zone.drag { background: #1a1800; }
+.upload-zone input { display: none; }
+.upload-icon { font-size: 38px; margin-bottom: 10px; }
+.upload-zone h3 { color: #e8a020; font-size: 14px; margin-bottom: 6px; }
+.upload-zone p { color: #aaa; font-size: 11px; line-height: 1.8; }
+.upload-btn-label { display: inline-block; margin-top: 12px; padding: 8px 22px; background: #e8a020; color: #0f1117; border-radius: 4px; font-weight: 700; font-size: 11px; }
+.upload-status { margin-top: 12px; font-size: 11px; min-height: 16px; }
+.s-ok { color: #4caf50; } .s-err { color: #f44336; } .s-loading { color: #ffc107; }
+.filtros-bar { display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; background:#131620; border:1px solid #252838; border-radius:4px; padding:10px 14px; margin-bottom:8px; }
+.filtro-group { display:flex; flex-direction:column; gap:3px; }
+.filtro-group label { font-size:10px; color:#e8a020; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; }
+.filtro-group input, .filtro-group select { background:#0f1117; border:1px solid #444; color:#e8e8e8; padding:5px 8px; border-radius:3px; font-size:11px; }
+.filtro-group input:focus, .filtro-group select:focus { outline:none; border-color:#e8a020; }
+.filtro-reset { padding:5px 12px; background:transparent; border:1px solid #555; color:#aaa; border-radius:3px; cursor:pointer; font-size:11px; height:28px; align-self:flex-end; }
+.filtro-reset:hover { border-color:#e8a020; color:#e8a020; }
+/* ── Multi-select dropdown ── */
+.ms-wrap { position:relative; min-width:160px; }
+.ms-btn { background:#0f1117; border:1px solid #444; color:#e8e8e8; padding:5px 28px 5px 8px; border-radius:3px; font-size:11px; cursor:pointer; width:100%; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; position:relative; }
+.ms-btn::after { content:"▾"; position:absolute; right:8px; top:50%; transform:translateY(-50%); color:#aaa; font-size:10px; }
+.ms-btn:hover,.ms-btn.open { border-color:#e8a020; }
+.ms-dropdown { display:none; position:absolute; top:calc(100% + 3px); left:0; min-width:220px; background:#141c28; border:1px solid #3a4450; border-radius:4px; z-index:9999; box-shadow:0 6px 20px rgba(0,0,0,.7); max-height:240px; overflow-y:auto; }
+.ms-dropdown.open { display:block; }
+.ms-item { display:flex; align-items:center; gap:8px; padding:6px 10px; cursor:pointer; font-size:11px; color:#ddd; border-bottom:1px solid #1e2a38; }
+.ms-item:last-child { border-bottom:none; }
+.ms-item:hover { background:#1e2a38; }
+.ms-item input[type=checkbox] { accent-color:#B09D7C; width:13px; height:13px; cursor:pointer; flex-shrink:0; }
+.ms-item.all-item { color:#B09D7C; font-weight:700; border-bottom:1px solid #2a3545; }
+.ms-tag { display:inline-block; background:#B09D7C22; color:#B09D7C; border-radius:10px; padding:1px 7px; font-size:9px; font-weight:700; margin:1px; }
+.no-data { text-align:center; padding:60px 20px; }
+.no-data p { font-size:14px; color:#888; margin-bottom:8px; }
+.go-btn { display:inline-block; margin-top:16px; padding:8px 22px; border:1px solid #e8a020; color:#e8a020; border-radius:4px; cursor:pointer; font-size:11px; font-weight:600; background:transparent; }
+.go-btn:hover { background:#e8a020; color:#0f1117; }
+.footer { text-align:right; font-size:10px; color:#555; margin-top:8px; }
+.print-btn { position:fixed; bottom:20px; right:20px; z-index:999; padding:10px 20px; background:#e8a020; color:#0f1117; border:none; border-radius:4px; font-weight:700; font-size:12px; cursor:pointer; display:none; box-shadow:0 2px 8px rgba(0,0,0,0.5); }
+.img-btn  { position:fixed; bottom:20px; right:140px; z-index:999; padding:10px 20px; background:#1e2235; color:#e8a020; border:1px solid #e8a020; border-radius:4px; font-weight:700; font-size:12px; cursor:pointer; display:none; box-shadow:0 2px 8px rgba(0,0,0,0.5); }
+.help-btn { display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; border-radius:50%; background:#1e2235; border:1px solid #555; color:#e8a020; font-size:9px; font-weight:700; cursor:pointer; margin-left:4px; vertical-align:middle; }
+.help-btn:hover { background:#e8a020; color:#0f1117; }
+#helpTooltip { display:none; position:fixed; z-index:9999; max-width:300px; background:#131620; border:1px solid #e8a020; border-radius:6px; padding:12px 14px; box-shadow:0 6px 24px rgba(0,0,0,0.8); pointer-events:none; }
+#helpTooltip .ht-title { color:#e8a020; font-size:12px; font-weight:700; margin-bottom:7px; padding-bottom:6px; border-bottom:1px solid #252838; }
+#helpTooltip .ht-body { color:#ddd; font-size:11px; line-height:1.7; }
+#helpTooltip .ht-formula { background:#0f1117; border:1px solid #252838; border-radius:3px; padding:6px 8px; margin:7px 0; color:#4caf50; font-family:monospace; font-size:10px; line-height:1.6; }
+@media print {
+  @page { size: A4 landscape; margin: 5mm; }
+  * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+  html { font-size: 10px !important; }
+  body {
+    background:#0f1117 !important;
+    min-width: unset !important;
+    width: 100% !important;
+    overflow: visible !important;
+  }
+  .header, .print-btn, .secao-bar, .help-btn, #helpTooltip,
+  #pdfModal, .filtros-bar, .filtro-group, .filtro-reset { display:none !important; }
+  /* Modo ABA */
+  body.print-aba .tab-content { display:none !important; }
+  body.print-aba .tab-content.print-target {
+    display: block !important;
+    padding: 0 !important;
+    width: 100% !important;
+    /* Escala para caber em A4 landscape sem cortar */
+    transform-origin: top left;
+    transform: scale(0.78);
+    /* Compensa o espaço do scale para não criar scroll */
+    margin-bottom: -22% !important;
+  }
+  /* Modo TUDO */
+  body.print-all #tab-upload { display:none !important; }
+  body.print-all .tab-content { display:block !important; padding:0 !important; page-break-after:always; width:100% !important; }
+  body.print-all .tab-content:last-of-type { page-break-after:auto; }
+  body.print-all .tab-content {
+    transform-origin: top left;
+    transform: scale(0.78);
+    margin-bottom: -22% !important;
+  }
+  /* Fontes compactas */
+  .kpi-value { font-size: 15px !important; }
+  .kpi-label { font-size: 8px !important; }
+  .kpi-sub   { font-size: 8px !important; }
+  .kpi-card  { padding: 6px 4px !important; }
+  .chart-title { font-size: 9px !important; }
+  .imp-table   { font-size: 10px !important; }
+  .imp-table th, .imp-table td { padding: 4px 6px !important; }
+  .charts-grid-3, .charts-grid-2 { gap: 5px !important; }
+}
+</style>
+
+<!-- Modal de opção PDF -->
+<div id="pdfModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.75);align-items:center;justify-content:center">
+  <div style="background:#131620;border:1px solid #e8a020;border-radius:8px;padding:28px 32px;min-width:320px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.8)">
+    <div style="font-size:18px;color:#e8a020;font-weight:700;margin-bottom:6px">🖨 Gerar PDF</div>
+    <div style="font-size:12px;color:#aaa;margin-bottom:20px">Escolha o que deseja exportar</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button onclick="doPrint('aba')" style="padding:12px 20px;background:#e8a020;color:#0f1117;border:none;border-radius:5px;font-size:13px;font-weight:700;cursor:pointer">
+        📄 Aba Atual
+        <div style="font-size:10px;font-weight:400;margin-top:2px;color:#333" id="pdfAbaLabel">Dashboard</div>
+      </button>
+      <button onclick="doPrint('tudo')" style="padding:12px 20px;background:#1e2235;color:#e8a020;border:1px solid #e8a020;border-radius:5px;font-size:13px;font-weight:700;cursor:pointer">
+        📋 BI Completo
+        <div style="font-size:10px;font-weight:400;margin-top:2px;color:#888">Dashboard + Relatório do Dia</div>
+      </button>
+      <button onclick="document.getElementById('pdfModal').style.display='none'" style="padding:8px;background:transparent;color:#666;border:1px solid #333;border-radius:5px;font-size:12px;cursor:pointer">
+        Cancelar
+      </button>
+    </div>
+  </div>
+</div>
+</head>
+<body>
+
+<div id="helpTooltip"><div class="ht-title" id="htTitle"></div><div class="ht-body" id="htBody"></div></div>
+
+<div class="header">
+  <div class="dash-title">🏭 BI Planta de Beneficiamento — Santa Felicidade</div>
+  <div class="dash-subtitle">Análise de Impactantes e Disponibilidade Física — Jun/2026</div>
+  <div class="tabs">
+    <button class="tab-btn active" id="btnUpload" onclick="goTab('upload',this)">📂 Carregar Planilha</button>
+    <button class="tab-btn" id="btnDash" onclick="goTab('dashboard',this)">📊 Dashboard</button>
+    <button class="tab-btn" id="btnDiario" onclick="goTab('diario',this)">📅 Visualização Diária</button>
+    <button class="tab-btn" id="btnRelat" onclick="goTab('relatorio',this)">📈 Relatório do Dia</button>
+    <button class="tab-btn" id="btnProducao" onclick="goTab('producao',this)">🏭 Produção da Planta</button>
+    <button class="tab-btn" id="btnFiltro" onclick="goTab('filtro',this)">🔍 Filtro de Impactantes</button>
+  </div>
+</div>
+
+<!-- UPLOAD -->
+<div class="tab-content active" id="tab-upload">
+  <div class="upload-box">
+    <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <input type="file" id="fileInput" accept=".xlsx,.xls">
+      <div class="upload-icon">🏭</div>
+      <h3>Carregar planilha de produção</h3>
+      <p>Carregue a planilha para visualizar os dados.<br>Formatos aceitos: .xlsx / .xls</p>
+      <span class="upload-btn-label">Selecionar arquivo</span>
+      <div class="upload-status" id="uploadStatus"></div>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="tab-content" id="tab-dashboard">
+  <div id="dashContent">
+    <div class="secao-bar">
+      <span style="font-size:10px;color:#666;font-weight:600">SEÇÃO:</span>
+      <button class="secao-btn active" onclick="selectSecao('brit',this)">⚙️ Britagem</button>
+      <button class="secao-btn" onclick="selectSecao('l1',this)">🔵 Moagem L1</button>
+      <button class="secao-btn" onclick="selectSecao('l2',this)">🟣 Moagem L2</button>
+      <button class="secao-btn" onclick="selectSecao('l3',this)">🟢 Moagem L3</button>
+      <button class="secao-btn" onclick="selectSecao('geral',this)">📊 Visão Geral</button>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi-card" style="--cor:#e8a020"><div class="kpi-label">Disponibilidade Física <span class="help-btn" data-tip="df">?</span></div><div class="kpi-value" id="kpiDF">—</div><div class="kpi-sub">Meta: &gt; 85%</div></div>
+      <div class="kpi-card" style="--cor:#4caf50"><div class="kpi-label">Horas Produzindo <span class="help-btn" data-tip="hp">?</span></div><div class="kpi-value" id="kpiHP" style="color:#4caf50">—</div><div class="kpi-sub" id="kpiHPSub"></div></div>
+      <div class="kpi-card" style="--cor:#f44336"><div class="kpi-label">Horas Parada <span class="help-btn" data-tip="hs">?</span></div><div class="kpi-value" id="kpiHS" style="color:#f44336">—</div><div class="kpi-sub" id="kpiHSSub"></div></div>
+      <div class="kpi-card" style="--cor:#ffc107"><div class="kpi-label">MTBF <span class="help-btn" data-tip="mtbf">?</span></div><div class="kpi-value" id="kpiMTBF" style="color:#ffc107">—</div><div class="kpi-sub">Tempo médio entre falhas</div></div>
+      <div class="kpi-card" style="--cor:#f44336"><div class="kpi-label">MTTR <span class="help-btn" data-tip="mttr">?</span></div><div class="kpi-value" id="kpiMTTR" style="color:#f44336">—</div><div class="kpi-sub">Tempo médio de reparo</div></div>
+      <div class="kpi-card" style="--cor:#9b59b6"><div class="kpi-label">Nº OCORRÊNCIAS</div><div class="kpi-value" id="kpiNOcorr" style="color:#9b59b6">—</div><div class="kpi-sub">Eventos de parada</div></div>
+    </div>
+
+    <div class="charts-grid-3">
+      <div class="chart-card">
+        <div class="chart-title">Horas Produzindo vs Parada por Dia <span class="help-btn" data-tip="hpBar">?</span></div>
+        <div style="position:relative;height:185px"><canvas id="dailyChart"></canvas></div>
+        <div class="legend-row">
+          <span><span style="width:10px;height:10px;background:#4caf50;border-radius:2px;display:inline-block"></span>Produzindo</span>
+          <span><span style="width:10px;height:10px;background:#f44336;border-radius:2px;display:inline-block"></span>Parada</span>
+        </div>
+      </div>
+      <div class="chart-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center">
+        <div class="chart-title">Disponibilidade Física <span class="help-btn" data-tip="dfGauge">?</span></div>
+        <div style="position:relative;height:210px;width:100%;max-width:280px" id="dfGaugeWrap"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Distribuição do Tempo <span class="help-btn" data-tip="distTempo">?</span></div>
+        <div style="position:relative;height:150px"><canvas id="donutChart"></canvas></div>
+        <div class="legend-row" id="donutLegend"></div>
+      </div>
+    </div>
+
+    <div class="imp-section">
+      <div class="imp-header">
+        🔴 Top Impactantes — Motivos de Parada <span class="help-btn" data-tip="impactantes">?</span>
+        <span style="font-size:10px;color:#666" id="impSecaoLabel"></span>
+      </div>
+      <table class="imp-table">
+        <thead><tr><th>#</th><th>Descrição / Motivo</th><th>Horas</th><th style="width:160px">Impacto</th><th>% do total parado</th></tr></thead>
+        <tbody id="impBody"></tbody>
+      </table>
+    </div>
+
+    <div class="charts-grid-2">
+      <div class="chart-card">
+        <div class="chart-title">MTBF vs MTTR por Seção <span class="help-btn" data-tip="mtbfComp">?</span></div>
+        <div style="position:relative;height:170px"><canvas id="mtbfChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Disponibilidade Física por Seção <span class="help-btn" data-tip="dfComp">?</span></div>
+        <div style="position:relative;height:170px"><canvas id="dfCompChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="footer">🏭 Planta de Beneficiamento Santa Felicidade &nbsp;|&nbsp; BI Impactantes &nbsp;|&nbsp; Jun/2026</div>
+  </div>
+</div>
+
+<!-- DIÁRIO -->
+<div class="tab-content" id="tab-diario">
+  <div class="filtros-bar">
+    <div class="filtro-group"><label>Data início</label><input type="date" id="fIni" onchange="renderDiario()"></div>
+    <div class="filtro-group"><label>Data fim</label><input type="date" id="fFim" onchange="renderDiario()"></div>
+    <div class="filtro-group"><label>Seção</label>
+      <select id="fSecao" onchange="renderDiario()">
+        <option value="todas">Todas</option>
+        <option value="brit">Britagem</option>
+        <option value="l1">Moagem L1</option>
+        <option value="l2">Moagem L2</option>
+        <option value="l3">Moagem L3</option>
+      </select>
+    </div>
+    <button class="filtro-reset" onclick="resetFiltros()">↺ Limpar</button>
+  </div>
+
+  <div class="kpi-row" style="margin-bottom:8px">
+    <div class="kpi-card" style="--cor:#e8a020"><div class="kpi-label">DF Período</div><div class="kpi-value" id="dKpiDF" style="color:#e8a020">—</div><div class="kpi-sub">Disponibilidade</div></div>
+    <div class="kpi-card" style="--cor:#4caf50"><div class="kpi-label">Horas Produzindo</div><div class="kpi-value" id="dKpiHP" style="color:#4caf50">—</div><div class="kpi-sub" id="dKpiHPSub"></div></div>
+    <div class="kpi-card" style="--cor:#f44336"><div class="kpi-label">Horas Parada</div><div class="kpi-value" id="dKpiHS" style="color:#f44336">—</div><div class="kpi-sub" id="dKpiHSSub"></div></div>
+    <div class="kpi-card" style="--cor:#ffc107"><div class="kpi-label">MTBF</div><div class="kpi-value" id="dKpiMTBF" style="color:#ffc107">—</div><div class="kpi-sub">Entre falhas</div></div>
+    <div class="kpi-card" style="--cor:#f44336"><div class="kpi-label">MTTR</div><div class="kpi-value" id="dKpiMTTR" style="color:#f44336">—</div><div class="kpi-sub">Tempo reparo</div></div>
+  </div>
+
+  <div class="imp-section">
+    <div class="imp-header" id="dTabelaHeader">📋 Registros do Período</div>
+    <div style="overflow-x:auto;max-height:440px;overflow-y:auto">
+      <table class="alert-table" style="font-size:10px">
+        <thead style="position:sticky;top:0;z-index:1">
+          <tr><th>Data</th><th>Seção</th><th>Horas Prod.</th><th>Horas Parada</th><th>DF do Dia</th><th>Status</th></tr>
+        </thead>
+        <tbody id="dTabelaBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ABA RELATÓRIO DO DIA -->
+<div class="tab-content" id="tab-relatorio">
+  <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;background:#131620;border:1px solid #252838;border-radius:6px;padding:12px 16px;margin-bottom:12px">
+    <div class="filtro-group">
+      <label>Data</label>
+      <input type="date" id="rData" onchange="renderRelatorio()">
+    </div>
+    <div class="filtro-group">
+      <label>Linha</label>
+      <select id="rLinha" onchange="renderRelatorio()">
+        <option value="l1">Moagem L1</option>
+        <option value="l2">Moagem L2</option>
+        <option value="l3">Moagem L3</option>
+      </select>
+    </div>
+    <div style="align-self:flex-end;font-size:11px;color:#888" id="rTituloInfo"></div>
+  </div>
+
+  <!-- KPIs do dia -->
+  <div class="kpi-row" style="margin-bottom:12px;grid-template-columns:repeat(6,1fr)">
+    <div class="kpi-card" style="--cor:#B09D7C"><div class="kpi-label">Produção do Dia</div><div class="kpi-value" id="rKpiProd" style="color:#B09D7C">—</div><div class="kpi-sub" id="rKpiProdSub">balança da linha</div></div>
+    <div class="kpi-card" style="--cor:#e8a020"><div class="kpi-label">DF do Dia</div><div class="kpi-value" id="rKpiDF">—</div><div class="kpi-sub">Meta: &gt; 85%</div></div>
+    <div class="kpi-card" style="--cor:#4caf50"><div class="kpi-label">Horas Produzindo</div><div class="kpi-value" id="rKpiHP" style="color:#4caf50">—</div><div class="kpi-sub" id="rKpiHPSub"></div></div>
+    <div class="kpi-card" style="--cor:#f44336"><div class="kpi-label">Horas Parada</div><div class="kpi-value" id="rKpiHS" style="color:#f44336">—</div><div class="kpi-sub" id="rKpiHSSub"></div></div>
+    <div class="kpi-card" style="--cor:#ffc107"><div class="kpi-label">Maior Impactante</div><div class="kpi-value" id="rKpiTop" style="color:#ffc107;font-size:14px;line-height:1.3">—</div><div class="kpi-sub" id="rKpiTopH"></div></div>
+    <div class="kpi-card" style="--cor:#ab47bc"><div class="kpi-label">Nº de Ocorrências</div><div class="kpi-value" id="rKpiN" style="color:#ab47bc">—</div><div class="kpi-sub">paradas no dia</div></div>
+  </div>
+
+  <!-- Gráfico impactantes -->
+  <div class="chart-card" style="margin-bottom:12px">
+    <div class="chart-title" id="rGraficoTitulo">Impactantes do Dia</div>
+    <div style="position:relative;height:420px"><canvas id="rBarChart"></canvas></div>
+  </div>
+
+  <!-- Tabela detalhada -->
+  <div class="imp-section">
+    <div class="imp-header" id="rTabelaHeader">📋 Detalhamento das Paradas</div>
+    <table class="imp-table">
+      <thead><tr><th>#</th><th>Descrição / Motivo</th><th style="text-align:center">Horas</th><th style="width:160px">Impacto</th><th style="text-align:center">% do parado</th></tr></thead>
+      <tbody id="rTabelaBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<button class="img-btn"  id="imgBtn"   onclick="gerarImagem()">📷 Salvar Imagem</button>
+<button class="print-btn" id="printBtn" onclick="abrirModalPDF()">🖨 Gerar PDF</button>
+
+<script>
+/* ══ DADOS ══ */
+const DADOS = {
+  brit: { nome:"Britagem",  hp:0, hs:0, df:0, mtbf:0, mttr:0, top_motivos:[] },
+  l1:   { nome:"Moagem L1", hp:0, hs:0, df:0, mtbf:0, mttr:0, top_motivos:[] },
+  l2:   { nome:"Moagem L2", hp:0, hs:0, df:0, mtbf:0, mttr:0, top_motivos:[] },
+  l3:   { nome:"Moagem L3", hp:0, hs:0, df:0, mtbf:0, mttr:0, top_motivos:[] },
+  brit_daily: {},
+  l1_daily:   {},
+  l2_daily:   {},
+  l3_daily:   {},
+  registros:  []
+};
+
+let secaoAtual = 'brit';
+const CI = {};
+const dc = id => { if(CI[id]){ CI[id].destroy(); delete CI[id]; } };
+
+/* ── Tabs ── */
+function dadosCarregados() {
+  return Object.keys(DADOS.l1_daily).length > 0 ||
+         Object.keys(DADOS.l2_daily).length > 0 ||
+         Object.keys(DADOS.l3_daily).length > 0 ||
+         Object.keys(DADOS.brit_daily).length > 0;
+}
+
+function goTab(name, btn) {
+  // Bloqueia abas de análise se não há dados
+  if (!dadosCarregados() && name !== 'upload') {
+    setStatus('⚠️ Carregue a planilha primeiro para acessar o dashboard.', 's-err');
+    return;
+  }
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if(btn) btn.classList.add('active');
+  if(name==='dashboard') renderDash();
+  if(name==='diario') initDiario();
+  if(name==='relatorio') initRelatorio();
+  if(name==='producao')  renderProducao();
+  if(name==='filtro')    initFiltro();
+}
+
+/* ── Seção ── */
+
+function fmtH(h) {
+  if (h === null || h === undefined || isNaN(h)) return '—';
+  const hrs = Math.floor(h);
+  const mins = Math.round((h - hrs) * 60);
+  if (hrs === 0 && mins === 0) return '0h';
+  if (hrs === 0) return mins + 'min';
+  if (mins === 0) return hrs + 'h';
+  return hrs + 'h ' + mins + 'min';
+}
+function selectSecao(s, btn) {
+  secaoAtual = s;
+  document.querySelectorAll('.secao-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderDash();
+}
+
+/* ── Classificação de motivo ── */
+function tipoMotivo(m) {
+  const u = m.toUpperCase();
+  // Detecta pelo prefixo exato (nova planilha: "TipoParada ∥ Equip ∥ Desc")
+  if (/^CORRETIVA MEC/.test(u))             return {tipo:'CORRETIVA MEC.',cor:'#ffc107'};
+  if (/^CORRETIVA EL[EÉ]T/.test(u))        return {tipo:'CORRETIVA ELET.',cor:'#f44336'};
+  if (/^PREVENTIVA/.test(u))               return {tipo:'PREVENTIVA',cor:'#4a90d9'};
+  if (/^TROCA DE COMPONENTE/.test(u))      return {tipo:'COMP. DESGASTE',cor:'#26a69a'};
+  if (/^OPERACIONAL/.test(u))              return {tipo:'OPERACIONAL',cor:'#ff7043'};
+  if (/^INSPE[ÇC][ÃA]O/.test(u))          return {tipo:'INSPEÇÃO',cor:'#26a69a'};
+  if (/^AGUARDANDO/.test(u))               return {tipo:'AGUARDANDO',cor:'#78909c'};
+  // Fallback por palavras-chave na descrição
+  if (/TROCA DE (MARTELO|GRELHA|REVESTIM|BALATA|FACA|CORREIA|BOLA|QUEIXO)/.test(u)) return {tipo:'COMP. DESGASTE',cor:'#26a69a'};
+  if (/MANU|REPARO|SOLDA|LUBRIF|ROLAMENTO|EIXO|FLANGE|REDUTOR/.test(u)) return {tipo:'CORRETIVA MEC.',cor:'#ffc107'};
+  if (/EL[EÉ]T|ENERGIA|MOTOR|INVERSOR|SENSOR|AUTOMA/.test(u)) return {tipo:'CORRETIVA ELET.',cor:'#f44336'};
+  if (/AGUARD|ESPERA|MATERIAL|BRITADO/.test(u)) return {tipo:'AGUARDANDO',cor:'#78909c'};
+  if (/INSPEC|VISTORIA/.test(u)) return {tipo:'INSPEÇÃO',cor:'#26a69a'};
+  return {tipo:'OUTROS',cor:'#888'};
+}
+
+/* ── RENDER DASHBOARD ── */
+function renderDash() {
+  const isGeral = secaoAtual === 'geral';
+
+  // Normaliza prod/parada para max 24h por dia (evita dupla contagem diurno+noturno)
+  function norm24(v) {
+    const total = v.prod + v.parada;
+    if (total <= 0) return { prod:0, parada:0 };
+    if (total <= 24) return { prod:v.prod, parada:v.parada };
+    const pct = v.prod / total;
+    const hp  = Math.round(pct * 24 * 10) / 10;
+    return { prod:hp, parada:+(24-hp).toFixed(1) };
+  }
+
+  // Calcula hp, hs e df reais a partir dos dados diários (normalizados a 24h)
+  function calcFromDaily(dailyKey) {
+    const daily = DADOS[dailyKey];
+    const secKey = dailyKey.replace('_daily','');  // brit/l1/l2/l3
+    let hp=0, hs=0;
+    Object.entries(daily).sort().forEach(([d,v]) => {
+      const n = norm24(v);
+      hp += n.prod;
+      hs += n.parada;
+    });
+    const tb = hp + hs;
+
+    // Conta ocorrências REAIS a partir de R_MOT (lista de eventos por dia)
+    // R_MOT[sec][data] = [[motivo, horas], ...] — cada item = 1 ocorrência
+    let nOcorr = 0;
+    const rmot = (typeof R_MOT !== 'undefined' ? R_MOT[secKey] : null) || {};
+    Object.values(rmot).forEach(lista => {
+      if (Array.isArray(lista)) {
+        lista.forEach(item => {
+          // item = [motivo, horas]; conta se horas > 0
+          if (Array.isArray(item) && item.length >= 2 && item[1] > 0) nOcorr++;
+        });
+      }
+    });
+
+    return {
+      hp, hs, tb,
+      df:    tb>0 ? hp/tb*100 : 0,
+      mtbf:  nOcorr>0 ? +(hp/nOcorr).toFixed(1) : +hp.toFixed(1),
+      mttr:  nOcorr>0 ? +(hs/nOcorr).toFixed(1) : 0,
+      nOcorr
+    };
+  }
+
+  const brit = calcFromDaily('brit_daily');
+  const l1   = calcFromDaily('l1_daily');
+  const l2   = calcFromDaily('l2_daily');
+  const l3   = calcFromDaily('l3_daily');
+  const nSec = [brit,l1,l2,l3].filter(s=>s.tb>0).length || 1;
+
+  const kd = isGeral ? {
+    nome: 'Visão Geral',
+    hp:   (brit.hp + l1.hp + l2.hp + l3.hp) / nSec,
+    hs:   (brit.hs + l1.hs + l2.hs + l3.hs) / nSec,
+    tb:   Math.round((brit.tb + l1.tb + l2.tb + l3.tb) / nSec),
+    df:   (brit.df + l1.df + l2.df + l3.df) / nSec,
+    mtbf: [brit.mtbf,l1.mtbf,l2.mtbf,l3.mtbf].filter(v=>v>0).reduce((a,b)=>a+b,0) /
+          ([brit.mtbf,l1.mtbf,l2.mtbf,l3.mtbf].filter(v=>v>0).length||1),
+    mttr: [brit.mttr,l1.mttr,l2.mttr,l3.mttr].filter(v=>v>0).reduce((a,b)=>a+b,0) /
+          ([brit.mttr,l1.mttr,l2.mttr,l3.mttr].filter(v=>v>0).length||1),
+    nOcorr: brit.nOcorr + l1.nOcorr + l2.nOcorr + l3.nOcorr,
+    top_motivos: [...DADOS.brit.top_motivos,...DADOS.l1.top_motivos,...DADOS.l2.top_motivos,...DADOS.l3.top_motivos]
+      .reduce((acc,[m,h])=>{const f=acc.find(x=>x[0]===m);f?f[1]+=h:acc.push([m,h]);return acc;},[])
+      .sort((a,b)=>b[1]-a[1])
+  } : {
+    ...DADOS[secaoAtual],
+    hp:     {brit,l1,l2,l3}[secaoAtual].hp,
+    hs:     {brit,l1,l2,l3}[secaoAtual].hs,
+    tb:     {brit,l1,l2,l3}[secaoAtual].tb,
+    df:     {brit,l1,l2,l3}[secaoAtual].df,
+    mtbf:   {brit,l1,l2,l3}[secaoAtual].mtbf,
+    mttr:   {brit,l1,l2,l3}[secaoAtual].mttr,
+    nOcorr: {brit,l1,l2,l3}[secaoAtual].nOcorr,
+  };
+
+  const daily = isGeral ? null : DADOS[secaoAtual+'_daily'];
+
+  /* KPIs */
+  const dfColor = kd.df>=85?'#4caf50':kd.df>=60?'#ffc107':'#f44336';
+  const kdf = document.getElementById('kpiDF');
+  kdf.textContent = kd.df.toFixed(1)+'%'; kdf.style.color = dfColor;
+  document.getElementById('kpiHP').textContent = fmtH(kd.hp);
+  document.getElementById('kpiHPSub').textContent = `de ${+(kd.tb).toFixed(1)}h registradas`;
+  document.getElementById('kpiHS').textContent = fmtH(kd.hs);
+  document.getElementById('kpiHSSub').textContent = kd.tb>0?(kd.hs/kd.tb*100).toFixed(1)+'% do tempo':'—';
+  document.getElementById('kpiMTBF').textContent = fmtH(kd.mtbf);
+  document.getElementById('kpiMTTR').textContent = fmtH(kd.mttr);
+  document.getElementById('kpiNOcorr').textContent = (kd.nOcorr||0) + ' ocorr.';
+  document.getElementById('impSecaoLabel').textContent = kd.nome;
+
+  /* ── Barras diárias ── */
+  dc('dailyChart');
+  if (daily) {
+    const dates = Object.keys(daily).sort();
+    const lbls  = dates.map(d=>{ const p=d.split('-'); return p[2]+'/'+p[1]; });
+    const nDates = dates.map(d => norm24(daily[d]));
+    CI['dailyChart'] = new Chart(document.getElementById('dailyChart'), {
+      type:'bar',
+      data:{ labels:lbls, datasets:[
+        {label:'Produzindo', data:nDates.map(n=>n.prod),   backgroundColor:'rgba(76,175,80,0.8)',  borderWidth:0, stack:'s'},
+        {label:'Parada',     data:nDates.map(n=>n.parada), backgroundColor:'rgba(244,67,54,0.75)', borderWidth:0, stack:'s'}
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false}, tooltip:{backgroundColor:'#131620',titleColor:'#f0a020',bodyColor:'#e0e0e0',
+          callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y}h`}}},
+        scales:{
+          x:{stacked:true, ticks:{color:'#ccc',font:{size:9},maxRotation:45,maxTicksLimit:12}, grid:{display:false}},
+          y:{stacked:true, min:0, max:28, ticks:{color:'#ccc',font:{size:9}}, grid:{color:'rgba(255,255,255,0.08)'},
+             title:{display:true,text:'Horas',color:'#bbb',font:{size:10}}}
+        }}
+    });
+  } else {
+    // Visão geral: média das 3 seções por dia
+    const allDates = [...new Set([...Object.keys(DADOS.brit_daily),...Object.keys(DADOS.l1_daily),...Object.keys(DADOS.l2_daily),...Object.keys(DADOS.l3_daily)])].sort();
+    const lbls = allDates.map(d=>{ const p=d.split('-'); return p[2]+'/'+p[1]; });
+    const avgProd = allDates.map(d => {
+      let s=0,c=0;
+      ['brit','l1','l2','l3'].forEach(k=>{ if(DADOS[k+'_daily']&&DADOS[k+'_daily'][d]){s+=DADOS[k+'_daily'][d].prod;c++;} });
+      return c?+(s/c).toFixed(1):0;
+    });
+    const avgPara = allDates.map(d => {
+      let s=0,c=0;
+      ['brit','l1','l2','l3'].forEach(k=>{ if(DADOS[k+'_daily']&&DADOS[k+'_daily'][d]){s+=DADOS[k+'_daily'][d].parada;c++;} });
+      return c?+(s/c).toFixed(1):0;
+    });
+    CI['dailyChart'] = new Chart(document.getElementById('dailyChart'), {
+      type:'bar',
+      data:{ labels:lbls, datasets:[
+        {label:'Prod. Média', data:avgProd, backgroundColor:'rgba(76,175,80,0.8)', borderWidth:0, stack:'s'},
+        {label:'Parada Média',data:avgPara, backgroundColor:'rgba(244,67,54,0.75)', borderWidth:0, stack:'s'}
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{backgroundColor:'#131620',titleColor:'#f0a020',bodyColor:'#e0e0e0'}},
+        scales:{
+          x:{stacked:true,ticks:{color:'#ccc',font:{size:9},maxRotation:45,maxTicksLimit:12},grid:{display:false}},
+          y:{stacked:true,min:0,max:28,ticks:{color:'#ccc',font:{size:9}},grid:{color:'rgba(255,255,255,0.08)'},
+             title:{display:true,text:'Horas (média)',color:'#bbb',font:{size:10}}}
+        }}
+    });
+  }
+
+  /* ── Gauge DF — desenhado 100% no canvas, sem Chart.js ── */
+  // ── Gauge SVG ──
+  (function renderGaugeSVG(val) {
+    const wrap = document.getElementById('dfGaugeWrap');
+    if (!wrap) return;
+
+    const cor   = val>=85 ? '#4caf50' : val>=60 ? '#ffc107' : '#f44336';
+    const pct   = Math.min(100, Math.max(0, val)) / 100;
+
+    // Coordenadas fixas num viewBox 200×130
+    const VW=200, VH=130;
+    const cx=100, cy=100, R=88, r2=54;
+
+    // Converte ângulo (0=esquerda, 1=direita no semicírculo)
+    function pt(cx,cy,r,t) {
+      const a = Math.PI + t*Math.PI;
+      return [cx + Math.cos(a)*r, cy + Math.sin(a)*r];
+    }
+    function arc(r,t0,t1,fill) {
+      const [x1,y1]=pt(cx,cy,r,t0), [x2,y2]=pt(cx,cy,r,t1);
+      const [xi1,yi1]=pt(cx,cy,r2,t0), [xi2,yi2]=pt(cx,cy,r2,t1);
+      return `<path d="M${x1},${y1} A${r},${r} 0 0,1 ${x2},${y2} L${xi2},${yi2} A${r2},${r2} 0 0,0 ${xi1},${yi1} Z" fill="${fill}"/>`;
+    }
+
+    // Zonas de fundo
+    const bg =
+      arc(R,0,0.30,'rgba(244,67,54,0.5)') +
+      arc(R,0.30,0.57,'rgba(255,193,7,0.5)') +
+      arc(R,0.57,1.0,'rgba(76,175,80,0.5)');
+
+    // Trilho escuro
+    const [x0,y0]=pt(cx,cy,R,0),[x1b,y1b]=pt(cx,cy,R,1);
+    const [xi0,yi0]=pt(cx,cy,r2,0),[xi1b,yi1b]=pt(cx,cy,r2,1);
+    const trilho = `<path d="M${x0},${y0} A${R},${R} 0 0,1 ${x1b},${y1b} L${xi1b},${yi1b} A${r2},${r2} 0 0,0 ${xi0},${yi0} Z" fill="rgba(15,17,23,0.55)"/>`;
+
+    // Arco valor
+    const filled = pct>0.01 ? arc(R,0,pct,cor) : '';
+
+    // Marcador meta 85%
+    const [mx1,my1]=pt(cx,cy,r2+2,0.85), [mx2,my2]=pt(cx,cy,R-2,0.85);
+    const meta = `<line x1="${mx1}" y1="${my1}" x2="${mx2}" y2="${my2}" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-dasharray="3,2"/>`;
+
+    // Ponteiro
+    const [px,py] = pt(cx,cy,R*0.78,pct);
+    const needle = `<line x1="${cx}" y1="${cy}" x2="${px}" y2="${py}" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="${cx}" cy="${cy}" r="5" fill="white"/>
+      <circle cx="${cx}" cy="${cy}" r="2.5" fill="#111"/>`;
+
+    // Textos
+    const texts = `
+      <text x="100" y="116" text-anchor="middle" font-family="Segoe UI" font-size="22" font-weight="bold" fill="${cor}">${val.toFixed(1)}%</text>
+      <text x="100" y="128" text-anchor="middle" font-family="Segoe UI" font-size="10" fill="#bbb">Meta: 85%</text>
+      <text x="13"  y="103" text-anchor="middle" font-family="Segoe UI" font-size="9"  fill="#777">0%</text>
+      <text x="100" y="16"  text-anchor="middle" font-family="Segoe UI" font-size="9"  fill="#777">50%</text>
+      <text x="187" y="103" text-anchor="middle" font-family="Segoe UI" font-size="9"  fill="#777">100%</text>`;
+
+    wrap.innerHTML = `<svg viewBox="0 0 ${VW} ${VH}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+      ${bg}${trilho}${filled}${meta}${needle}${texts}
+    </svg>`;
+  })(kd.df);
+  CI['dfGauge'] = { destroy: () => {
+    const w = document.getElementById('dfGaugeWrap');
+    if(w) w.innerHTML = '';
+  }};
+
+  /* ── Rosca distribuição ── */
+  dc('donutChart');
+  const outro = Math.max(0, kd.tb - Math.round(kd.hp) - Math.round(kd.hs));
+  document.getElementById('donutLegend').innerHTML=`
+    <span><span style="width:10px;height:10px;background:#4caf50;border-radius:2px;display:inline-block"></span>${((kd.hp/kd.tb)*100).toFixed(0)}% Prod.</span>
+    <span><span style="width:10px;height:10px;background:#f44336;border-radius:2px;display:inline-block"></span>${((kd.hs/kd.tb)*100).toFixed(0)}% Parada</span>
+    <span><span style="width:10px;height:10px;background:#2a2d3a;border-radius:2px;display:inline-block"></span>${((outro/kd.tb)*100).toFixed(0)}% Outros</span>`;
+  CI['donutChart'] = new Chart(document.getElementById('donutChart'),{
+    type:'doughnut',
+    data:{datasets:[{data:[Math.round(kd.hp),Math.round(kd.hs),outro],backgroundColor:['#4caf50','#f44336','#2a2d3a'],borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'60%',
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#131620',callbacks:{label:ctx=>`${['Produzindo','Parada','Outros'][ctx.dataIndex]}: ${ctx.parsed}h`}}}}
+  });
+
+  /* ── Top impactantes ── */
+  const tbody = document.getElementById('impBody');
+  tbody.innerHTML = '';
+  const maxH = kd.top_motivos[0] ? kd.top_motivos[0][1] : 1;
+  kd.top_motivos.slice(0,12).forEach(([m,h],i)=>{
+    const ti = tipoMotivo(m);
+    const pct = kd.hs > 0 ? (h/kd.hs*100) : 0;
+    const rankCls = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-n';
+    const tr = document.createElement('tr');
+    tr.innerHTML=`
+      <td><span class="rank ${rankCls}">${i+1}</span></td>
+      <td style="max-width:340px;line-height:1.5">
+        <span style="font-size:9px;padding:2px 7px;border-radius:10px;background:${ti.cor}22;color:${ti.cor};font-weight:700;margin-right:6px">${ti.tipo}</span>
+        ${m}
+      </td>
+      <td style="text-align:center;font-weight:700;color:#e8a020">${h}h</td>
+      <td><div class="bar-bg"><div class="bar-fill" style="width:${(h/maxH*100).toFixed(0)}%;background:${ti.cor}"></div></div></td>
+      <td style="text-align:center;color:#888">${pct.toFixed(1)}%</td>`;
+    tbody.appendChild(tr);
+  });
+
+  /* ── MTBF comparativo ── */
+  dc('mtbfChart');
+  CI['mtbfChart'] = new Chart(document.getElementById('mtbfChart'),{
+    type:'bar',
+    data:{labels:['Britagem','Moagem L1','Moagem L2','Moagem L3'],
+      datasets:[
+        {label:'MTBF (h)',data:[brit.mtbf,l1.mtbf,l2.mtbf,l3.mtbf],backgroundColor:'rgba(255,193,7,0.85)',borderWidth:0,borderRadius:3},
+        {label:'MTTR (h)',data:[brit.mttr,l1.mttr,l2.mttr,l3.mttr],backgroundColor:'rgba(244,67,54,0.75)',borderWidth:0,borderRadius:3}
+      ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:'#ddd',font:{size:11},boxWidth:14,padding:10}},
+        tooltip:{backgroundColor:'#131620',callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y}h`}}},
+      scales:{
+        x:{ticks:{color:'#ccc',font:{size:9}},grid:{display:false}},
+        y:{ticks:{color:'#ccc',font:{size:9}},grid:{color:'rgba(255,255,255,0.08)'},
+           title:{display:true,text:'Horas',color:'#bbb',font:{size:10}}}
+      }}
+  });
+
+  /* ── DF comparativo ── */
+  dc('dfCompChart');
+  const dfVals = [DADOS.brit.df, DADOS.l1.df, DADOS.l2.df, DADOS.l3.df];
+  CI['dfCompChart'] = new Chart(document.getElementById('dfCompChart'),{
+    type:'bar',
+    data:{labels:['Britagem','Moagem L1','Moagem L2','Moagem L3'],
+      datasets:[{label:'DF (%)', data:dfVals,
+        backgroundColor: dfVals.map(v=>v>=85?'rgba(76,175,80,0.85)':v>=60?'rgba(255,193,7,0.85)':'rgba(244,67,54,0.85)'),
+        borderWidth:0, borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{backgroundColor:'#131620',callbacks:{label:ctx=>ctx.parsed.y.toFixed(1)+'%'}}},
+      scales:{
+        x:{ticks:{color:'#ccc',font:{size:9}},grid:{display:false}},
+        y:{min:0,max:100,
+          ticks:{color:'#ccc',font:{size:9},callback:v=>v+'%'},
+          grid:{color:'rgba(255,255,255,0.08)'},
+          title:{display:true,text:'DF (%)',color:'#bbb',font:{size:10}}}
+      }}
+  });
+
+  document.getElementById('printBtn').style.display = 'block';
+  document.getElementById('imgBtn').style.display   = 'block';
+}
+
+/* ══ ABA DIÁRIA ══ */
+function initDiario() {
+  const dates = [...new Set([...Object.keys(DADOS.brit_daily),...Object.keys(DADOS.l1_daily),...Object.keys(DADOS.l2_daily),...Object.keys(DADOS.l3_daily)])].sort();
+  document.getElementById('fIni').value = dates[0];
+  document.getElementById('fFim').value = dates[dates.length-1];
+  document.getElementById('fSecao').value = 'todas';
+  renderDiario();
+}
+
+function resetFiltros() {
+  const dates = [...new Set([...Object.keys(DADOS.brit_daily),...Object.keys(DADOS.l1_daily),...Object.keys(DADOS.l2_daily),...Object.keys(DADOS.l3_daily)])].sort();
+  document.getElementById('fIni').value = dates[0];
+  document.getElementById('fFim').value = dates[dates.length-1];
+  document.getElementById('fSecao').value = 'todas';
+  renderDiario();
+}
+
+function renderDiario() {
+  const ini = document.getElementById('fIni').value;
+  const fim = document.getElementById('fFim').value;
+  const sec = document.getElementById('fSecao').value;
+
+  // Normaliza prod e parada para 24h (evita dupla contagem diurno+noturno)
+  function norm24(v) {
+    const total = v.prod + v.parada;
+    if (total <= 0) return { prod: 0, parada: 0 };
+    if (total <= 24) return { prod: v.prod, parada: v.parada };
+    // Proporcional a 24h
+    const pct = v.prod / total;
+    const hp  = Math.round(pct * 24 * 10) / 10;
+    return { prod: hp, parada: +(24 - hp).toFixed(1) };
+  }
+
+  // Monta linhas por dia por seção
+  const rows = [];
+  const addRows = (daily, nome, cor, key) => {
+    Object.entries(daily).sort().forEach(([d,v]) => {
+      if(ini && d<ini) return;
+      if(fim && d>fim) return;
+      const p = d.split('-');
+      const lbl = p[2]+'/'+p[1];
+      const n = norm24(v);
+      const df = (n.prod + n.parada) > 0 ? (n.prod / (n.prod + n.parada) * 100) : 0;
+      rows.push({data:d, label:lbl, secao:nome, cor, key, prod:n.prod, parada:n.parada, df});
+    });
+  };
+  if(sec==='todas'||sec==='brit') addRows(DADOS.brit_daily,'Britagem','#e8a020','brit');
+  if(sec==='todas'||sec==='l1')   addRows(DADOS.l1_daily,'Moagem L1','#4a90d9','l1');
+  if(sec==='todas'||sec==='l2')   addRows(DADOS.l2_daily,'Moagem L2','#9b59b6','l2');
+  if(sec==='todas'||sec==='l3')   addRows(DADOS.l3_daily,'Moagem L3','#4caf50','l3');
+  rows.sort((a,b)=>a.data.localeCompare(b.data)||a.secao.localeCompare(b.secao));
+
+  // KPIs — soma prod e parada já normalizadas
+  let hpFilt=0, hsFilt=0, nParadas=0;
+  const secDailies = [];
+  if(sec==='todas'||sec==='brit') secDailies.push(DADOS.brit_daily);
+  if(sec==='todas'||sec==='l1')   secDailies.push(DADOS.l1_daily);
+  if(sec==='todas'||sec==='l2')   secDailies.push(DADOS.l2_daily);
+  if(sec==='todas'||sec==='l3')   secDailies.push(DADOS.l3_daily);
+
+  secDailies.forEach(daily => {
+    let prevParada = false;
+    Object.entries(daily).sort().forEach(([d,v]) => {
+      if(ini && d<ini) return;
+      if(fim && d>fim) return;
+      const n = norm24(v);
+      hpFilt += n.prod;
+      hsFilt += n.parada;
+      const isParada = n.parada > 0 && n.prod === 0;
+      if(isParada && !prevParada) nParadas++;
+      prevParada = isParada;
+    });
+  });
+
+  const tbFilt   = hpFilt + hsFilt;
+  const dfFilt   = tbFilt > 0 ? hpFilt / tbFilt * 100 : 0;
+  const mtbfFilt = nParadas > 0 ? hpFilt / nParadas : hpFilt;
+  const mttrFilt = nParadas > 0 ? hsFilt / nParadas : 0;
+
+  const ddf = document.getElementById('dKpiDF');
+  ddf.textContent = dfFilt.toFixed(1)+'%';
+  ddf.style.color = dfFilt>=85?'#4caf50':dfFilt>=60?'#ffc107':'#f44336';
+  document.getElementById('dKpiHP').textContent = fmtH(hpFilt);
+  document.getElementById('dKpiHPSub').textContent = `de ${+tbFilt.toFixed(1)}h registradas`;
+  document.getElementById('dKpiHS').textContent = fmtH(hsFilt);
+  document.getElementById('dKpiHSSub').textContent = tbFilt>0?(hsFilt/tbFilt*100).toFixed(1)+'% do tempo':'—';
+  document.getElementById('dKpiMTBF').textContent = fmtH(mtbfFilt);
+  document.getElementById('dKpiMTTR').textContent = fmtH(mttrFilt);
+
+  document.getElementById('dTabelaHeader').textContent =
+    `📋 Registros — ${rows.length} linhas (${ini||'—'} a ${fim||'—'})`;
+
+  const tbody = document.getElementById('dTabelaBody');
+  tbody.innerHTML = '';
+  if(!rows.length) {
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#444;padding:14px">Nenhum registro no período.</td></tr>';
+    return;
+  }
+  rows.forEach(r => {
+    const isProd = r.prod > 0 && r.parada === 0;
+    const isParada = r.parada > 0 && r.prod === 0;
+    const dfCor = r.df>=85?'#4caf50':r.df>=60?'#ffc107':'#f44336';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${r.label}</td>
+      <td style="color:${r.cor};font-weight:600">${r.secao}</td>
+      <td style="text-align:center;color:${r.prod>0?'#4caf50':'#444'};font-weight:700">${r.prod>0?fmtH(r.prod):'—'}</td>
+      <td style="text-align:center;color:${r.parada>0?'#f44336':'#444'};font-weight:700">${r.parada>0?fmtH(r.parada):'—'}</td>
+      <td style="text-align:center;color:${dfCor};font-weight:700">${r.df.toFixed(0)}%</td>
+      <td>${isProd?'<span style="color:#4caf50;font-weight:700">✅ Produzindo</span>':isParada?'<span style="color:#f44336;font-weight:700">🔴 Parada Total</span>':'<span style="color:#ffc107;font-weight:700">⚠️ Parcial</span>'}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ══ UPLOAD ══ */
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('drag');});
+dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('drag');if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);});
+document.getElementById('fileInput').addEventListener('change',e=>{if(e.target.files[0])handleFile(e.target.files[0]);});
+function setStatus(m,c){const el=document.getElementById('uploadStatus');el.className='upload-status '+c;el.textContent=m;}
+
+function handleFile(f) {
+  setStatus('⏳ Lendo planilha...','s-loading');
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, {type:'array'});
+
+      // Converte qualquer formato de tempo para minutos
+      // SheetJS com [h]:mm:ss retorna número decimal (ex: 0.5 = 12h)
+      // SheetJS sem cellDates retorna número puro
+      function toMins(v) {
+        if (v === null || v === undefined || v === '') return 0;
+        // Número (SheetJS padrão para células de tempo)
+        if (typeof v === 'number') {
+          // Remove parte inteira (data) se houver
+          const frac = v - Math.floor(v);
+          return Math.round(frac * 24 * 60);
+        }
+        // Date (SheetJS com cellDates:true)
+        if (v instanceof Date) {
+          // Usa UTC para evitar problemas de timezone
+          return v.getUTCHours()*60 + v.getUTCMinutes() + Math.round(v.getUTCSeconds()/60);
+        }
+        // String "H:MM" ou "H:MM:SS"
+        if (typeof v === 'string' && v.includes(':')) {
+          const p = v.split(':');
+          return parseInt(p[0]||0)*60 + parseInt(p[1]||0);
+        }
+        return 0;
+      }
+      function fmtDate(d) {
+        if (!d) return null;
+        if (d instanceof Date) {
+          const y = d.getFullYear();
+          if (y < 2000 || y > 2100) return null;
+          return `${y}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        }
+        // Número serial Excel (sem cellDates)
+        if (typeof d === 'number' && d > 40000) {
+          const epoch = new Date(Math.round((d - 25569) * 86400 * 1000));
+          return `${epoch.getUTCFullYear()}-${String(epoch.getUTCMonth()+1).padStart(2,'0')}-${String(epoch.getUTCDate()).padStart(2,'0')}`;
+        }
+        return null;
+      }
+      function cleanStr(v) {
+        if (!v) return '';
+        return String(v).replace(/\xa0/g,' ').trim();
+      }
+
+      // ══════════════════════════════════════════════════════════════════
+      // PARSER — Nova planilha (Jun/2026)
+      // Abas: 'Britador', 'Linha 1', 'Linha 2', 'Linha 3'
+      // Cols: 0=Data 1=Hora 2=Supervisor 3=TipoMaterial 4=Conchadas 5=Producao
+      //       6=TipoParada 7=Equipamento 8=Descricao 9=HRInicio 10=HRFim
+      //       11=TParada(timedelta) 12=Obs 13=Balanca
+      // Parada: col11 preenchido apenas na linha de início (col9<>"")
+      // ══════════════════════════════════════════════════════════════════
+
+      // Mapeia nome de aba para chave interna
+      const ABA_MAP = {
+        'Britador':  'brit',
+        'Linha 1':   'l1',
+        'Linha 2':   'l2',
+        'Linha 3':   'l3',
+      };
+
+      // Inicializa estruturas
+      const l1_parada={}, l2_parada={}, l3_parada={}, brit_parada={};
+      const l1_mots={},   l2_mots={},   l3_mots={},   brit_mots={};
+      const l1_hasdata={},l2_hasdata={},l3_hasdata={}, brit_hasdata={};
+
+      // Referências por chave
+      const _parada = {brit:brit_parada, l1:l1_parada, l2:l2_parada, l3:l3_parada};
+      const _mots   = {brit:brit_mots,   l1:l1_mots,   l2:l2_mots,   l3:l3_mots};
+      const _has    = {brit:brit_hasdata, l1:l1_hasdata,l2:l2_hasdata, l3:l3_hasdata};
+
+      // Processa cada aba — cada linha de início = 1 ocorrência distinta
+      Object.entries(ABA_MAP).forEach(([sheetName, key]) => {
+        const ws = wb.Sheets[sheetName];
+        if (!ws) return;
+
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+        const parada = _parada[key];
+        const hasdata= _has[key];
+        if (!_mots[key]) _mots[key] = {};
+
+        rows.slice(1).forEach(r => {
+          const data = fmtDate(r[0]); if (!data) return;
+          const tipo_parada = cleanStr(r[6]);
+          const equip       = cleanStr(r[7]);
+          const desc        = cleanStr(r[8]);
+          const hi          = r[9];
+          const conch       = typeof r[4]==='number' ? r[4] : 0;
+          const prod        = typeof r[5]==='number' ? r[5] : 0;
+          const t_parada_mins = toMins(r[11]);
+
+          if (conch > 0 || prod > 0 || tipo_parada || t_parada_mins > 0)
+            hasdata[data] = true;
+
+          if (!parada[data]) parada[data] = 0;
+          parada[data] += t_parada_mins;
+
+          // Registra SOMENTE linhas de início (hi preenchido + tempo > 0)
+          if (t_parada_mins > 0 && hi != null && (tipo_parada || equip || desc)) {
+            const motivo = [tipo_parada||'', equip||'', desc||''].join(' ∥ ');
+            if (!_mots[key][data]) _mots[key][data] = [];
+            _mots[key][data].push([motivo, t_parada_mins]);
+          }
+        });
+
+        parada._hasdata = hasdata;
+      });
+
+      function buildDaily(parada_map, has_data_map) {
+        const out = {};
+        Object.entries(parada_map).sort().forEach(([d, pm]) => {
+          if (!has_data_map[d]) return;
+          const hs = +Math.min(24, pm/60).toFixed(1);
+          out[d] = { prod: +Math.max(0, 24-hs).toFixed(1), parada: hs };
+        });
+        return out;
+      }
+
+      const l1_daily   = buildDaily(l1_parada,   l1_parada._hasdata   || {});
+      const l2_daily   = buildDaily(l2_parada,   l2_parada._hasdata   || {});
+      const l3_daily   = buildDaily(l3_parada,   l3_parada._hasdata   || {});
+      const brit_daily = buildDaily(brit_parada,  brit_parada._hasdata || {});
+
+      // buildMots: lista preserva ocorrências distintas
+      function buildMots(mots_map) {
+        const out = {};
+        Object.entries(mots_map).forEach(([d, lista]) => {
+          out[d] = lista
+            .map(([m,mins]) => [m, +(mins/60).toFixed(2)])
+            .filter(([,h]) => h > 0)
+            .sort((a,b) => b[1]-a[1]);
+        });
+        return out;
+      }
+
+      const new_l1_mots   = buildMots(_mots['l1']||{});
+      const new_l2_mots   = buildMots(_mots['l2']||{});
+      const new_l3_mots   = buildMots(_mots['l3']||{});
+
+      // Reconstrói top_motivos global acumulado
+      function globalTop(mots_map) {
+        const acc = {};
+        Object.values(mots_map).forEach(lista => {
+          if (Array.isArray(lista)) {
+            lista.forEach(item => {
+              if (Array.isArray(item)) { const [m,mins]=item; acc[m]=(acc[m]||0)+mins; }
+            });
+          } else if (lista && typeof lista === 'object') {
+            Object.entries(lista).forEach(([m,mins]) => { acc[m]=(acc[m]||0)+mins; });
+          }
+        });
+        return Object.entries(acc)
+          .map(([m,mins]) => [m, +(mins/60).toFixed(1)])
+          .sort((a,b) => b[1]-a[1])
+          .slice(0, 14);
+      }
+
+      // KPIs globais
+      function calcKPI(daily, mots_map) {
+        let hp=0, hs=0;
+        Object.values(daily).forEach(v => { hp += v.prod; hs += v.parada; });
+        // mots_map[data] é LISTA de eventos [[motivo,horas],...] — cada item = 1 ocorrência
+        let nOcorr = 0;
+        Object.values(mots_map).forEach(lista => {
+          if (Array.isArray(lista)) {
+            lista.forEach(item => {
+              const h = Array.isArray(item) ? item[1] : (typeof item==='number'?item:0);
+              if (h > 0) nOcorr++;
+            });
+          } else if (lista && typeof lista === 'object') {
+            // Fallback formato antigo {motivo:mins}
+            Object.values(lista).forEach(mins => { if (mins > 0) nOcorr++; });
+          }
+        });
+        const tb = hp+hs;
+        return {
+          hp: +hp.toFixed(1), hs: +hs.toFixed(1), tb: +tb.toFixed(1),
+          df:    tb>0  ? +(hp/tb*100).toFixed(1) : 0,
+          mtbf:  nOcorr>0 ? +(hp/nOcorr).toFixed(1)  : +hp.toFixed(1),
+          mttr:  nOcorr>0 ? +(hs/nOcorr).toFixed(1)  : 0,
+          nOcorr: nOcorr,
+          top_motivos: globalTop(mots_map)
+        };
+      }
+
+      const k1 = calcKPI(l1_daily,   l1_mots);
+      const k2 = calcKPI(l2_daily,   l2_mots);
+      const k3 = calcKPI(l3_daily,   l3_mots);
+      const kb = calcKPI(brit_daily,  brit_mots);
+
+      // Reconstrói R_KPI dinamicamente
+      function buildRKPI(daily) {
+        const out = {};
+        Object.entries(daily).forEach(([d,v]) => {
+          const tb = v.prod + v.parada;
+          out[d] = {
+            hp: v.prod,
+            hs: v.parada,
+            df: tb>0 ? +(v.prod/tb*100).toFixed(1) : 0
+          };
+        });
+        return out;
+      }
+
+      // Atualiza tudo
+      DADOS.brit         = { nome:"Britagem",  ...kb };
+      DADOS.l1           = { nome:"Moagem L1", ...k1 };
+      DADOS.l2           = { nome:"Moagem L2", ...k2 };
+      DADOS.l3           = { nome:"Moagem L3", ...k3 };
+      DADOS.brit_daily   = brit_daily;
+      DADOS.l1_daily     = l1_daily;
+      DADOS.l2_daily     = l2_daily;
+      DADOS.l3_daily     = l3_daily;
+
+      // Salva registros brutos para aba Análise
+      DADOS.registros = [];
+      Object.entries(ABA_MAP).forEach(([sheetName, key]) => {
+        const ws2 = wb.Sheets[sheetName];
+        if (!ws2) return;
+        const rows2 = XLSX.utils.sheet_to_json(ws2, {header:1, defval:null, raw:true});
+        const nomeMap = {brit:'Britagem',l1:'Moagem L1',l2:'Moagem L2',l3:'Moagem L3'};
+        rows2.slice(1).forEach(r => {
+          const data = fmtDate(r[0]); if (!data) return;
+          const t = toMins(r[11]);
+          if (t <= 0) return; // só linhas de início real
+          const tipo = cleanStr(r[6]);
+          const equip = cleanStr(r[7]);
+          const desc  = cleanStr(r[8]);
+          const hIni  = r[9];
+          const hFim  = r[10];
+          const fmtTime = v => {
+            if (!v) return '—';
+            if (v instanceof Date) return `${String(v.getUTCHours()).padStart(2,'0')}:${String(v.getUTCMinutes()).padStart(2,'0')}`;
+            if (typeof v === 'number') {
+              const frac = v - Math.floor(v);
+              const hh = Math.floor(frac*24), mm = Math.round((frac*24-hh)*60);
+              return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
+            }
+            return String(v).substring(0,5);
+          };
+          DADOS.registros.push({
+            data, linha: nomeMap[key]||key, linhaKey: key,
+            equip, tipo, desc,
+            hIni: fmtTime(hIni), hFim: fmtTime(hFim),
+            mins: t
+          });
+        });
+      });
+      console.log('Registros brutos:', DADOS.registros.length);
+
+      // Atualiza dados do Relatório do Dia
+      R_MOT.brit = buildMots(brit_mots);
+      R_MOT.l1 = new_l1_mots;
+      R_MOT.l2 = new_l2_mots;
+      R_MOT.l3 = new_l3_mots;
+      R_KPI.brit = buildRKPI(brit_daily);
+      R_KPI.l1 = buildRKPI(l1_daily);
+      R_KPI.l2 = buildRKPI(l2_daily);
+      R_KPI.l3 = buildRKPI(l3_daily);
+
+      // ═══════════════════════════════════════════════════════════
+      // RECONSTRÓI PRODUÇÃO DA PLANTA (balança + conchadas)
+      // Fonte primária: totalizadores das abas de linha (col 13)
+      // Fonte secundária: aba Resumo (se existir)
+      // ═══════════════════════════════════════════════════════════
+      (function rebuildProdPlanta() {
+        const SEC = {Britador:'brit','Linha 1':'l1','Linha 2':'l2','Linha 3':'l3'};
+        const balanca = {brit:{}, l1:{}, l2:{}, l3:{}};
+        const prodLinha = {brit:{}, l1:{}, l2:{}, l3:{}};
+        const matTot = {brit:{}, l1:{}, l2:{}, l3:{}};
+
+        Object.entries(SEC).forEach(([sheetName, key]) => {
+          const ws = wb.Sheets[sheetName];
+          if (!ws) return;
+          const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+          let ultimaData = null, turnoSoma = 0;
+          rows.forEach(r => {
+            const c0 = r[0];
+            const data = fmtDate(c0);
+            if (data) {
+              ultimaData = data;
+              // Conchadas e produção estimada por dia
+              const conch = typeof r[4]==='number' ? r[4] : 0;
+              const prod  = typeof r[5]==='number' ? r[5] : 0;
+              const mat   = cleanStr(r[3]);
+              if (!prodLinha[key][data]) prodLinha[key][data] = {conch:0, prod:0};
+              prodLinha[key][data].conch += conch;
+              prodLinha[key][data].prod  += prod;
+              if (mat && conch>0) matTot[key][mat] = (matTot[key][mat]||0) + conch;
+            } else if (typeof c0 === 'string') {
+              const cu = c0.toUpperCase();
+              const bal = typeof r[13]==='number' ? r[13] : 0;
+              if (cu.indexOf('TURNO') >= 0) {
+                turnoSoma += bal;
+              } else if (cu.indexOf('TOTAL GLOBAL') >= 0) {
+                if (ultimaData) {
+                  const valor = bal>0 ? bal : turnoSoma;
+                  if (valor > 0) balanca[key][ultimaData] = valor;
+                }
+                turnoSoma = 0;
+              }
+            }
+          });
+        });
+
+        // Tenta complementar com a aba Resumo (caso tenha valores que faltaram)
+        const wsR = wb.Sheets['Resumo'];
+        if (wsR) {
+          const rrows = XLSX.utils.sheet_to_json(wsR, {header:1, defval:null, raw:true});
+          rrows.forEach(r => {
+            const data = fmtDate(r[1]);
+            if (!data) return;
+            const nb = typeof r[2]==='number' ? r[2] : 0;
+            const n1 = typeof r[3]==='number' ? r[3] : 0;
+            const n2 = typeof r[4]==='number' ? r[4] : 0;
+            const n3 = typeof r[5]==='number' ? r[5] : 0;
+            // Resumo só preenche se a linha ainda não tiver balança vinda das abas
+            if (nb>0 && !balanca.brit[data]) balanca.brit[data] = nb;
+            if (n1>0 && !balanca.l1[data])   balanca.l1[data]   = n1;
+            if (n2>0 && !balanca.l2[data])   balanca.l2[data]   = n2;
+            if (n3>0 && !balanca.l3[data])   balanca.l3[data]   = n3;
+          });
+        }
+
+        // Monta o resumo consolidado: total moagem = L1+L2+L3
+        const todasDatas = [...new Set([
+          ...Object.keys(balanca.brit), ...Object.keys(balanca.l1),
+          ...Object.keys(balanca.l2),   ...Object.keys(balanca.l3),
+          ...Object.keys(prodLinha.l1)
+        ])].sort();
+        const resumo = todasDatas.map(data => {
+          const b  = balanca.brit[data] || 0;
+          const v1 = balanca.l1[data]   || 0;
+          const v2 = balanca.l2[data]   || 0;
+          const v3 = balanca.l3[data]   || 0;
+          return { data, dia: parseInt(data.slice(8,10)),
+                   brit:b, l1:v1, l2:v2, l3:v3, total: v1+v2+v3 };
+        });
+
+        PROD_PLANTA = { resumo, prod_linha: prodLinha, material_tot: matTot };
+      })();
+
+      // Atualiza datas disponíveis no seletor do relatório
+      const allDates = [...new Set([
+        ...Object.keys(brit_daily),
+        ...Object.keys(l1_daily),
+        ...Object.keys(l2_daily),
+        ...Object.keys(l3_daily)
+      ])].sort();
+      const rDataEl  = document.getElementById('rData');
+      if (rDataEl && allDates.length) {
+        rDataEl.min = allDates[0];
+        rDataEl.max = allDates[allDates.length-1];
+        rDataEl.value = allDates[allDates.length-1];
+      }
+
+      const nDias = allDates.length;
+      const primeiro = allDates[0], ultimo = allDates[allDates.length-1];
+
+      // Reseta inputs de data da Produção da Planta para recalcular com dados novos
+      const ppIniEl = document.getElementById('ppIni');
+      const ppFimEl = document.getElementById('ppFim');
+      if (ppIniEl) ppIniEl.value = '';
+      if (ppFimEl) ppFimEl.value = '';
+
+      console.log('Upload OK:', nDias, 'dias |', primeiro, 'a', ultimo);
+      console.log('L1 sample:', Object.entries(l1_daily).slice(0,3));
+      console.log('L3 sample:', Object.entries(l3_daily).slice(0,3));
+      setStatus(`✅ "${f.name}" — ${nDias} dias (${primeiro} → ${ultimo})`, 's-ok');
+      document.getElementById('printBtn').style.display = 'block';
+      document.getElementById('imgBtn').style.display   = 'block';
+      goTab('dashboard', document.getElementById('btnDash'));
+
+    } catch(err) {
+      console.error('Erro parser:', err);
+      console.error('Stack:', err.stack);
+      setStatus(`❌ Erro ao processar: ${err.message}. Verifique o console (F12).`, 's-err');
+    }
+  };
+  reader.readAsArrayBuffer(f);
+}
+
+
+/* ══ ANÁLISE DE APONTAMENTOS ══ */
+function resetAnalise() {
+  document.getElementById('aTipo').value = 'todas';
+  document.getElementById('aEquip').value = 'todos';
+  document.getElementById('aLinha').value = 'todas';
+  renderAnalise();
+}
+
+function renderAnalise() {
+  if (!dadosCarregados()) return;
+  const tipo   = document.getElementById('aTipo').value;
+  const equip  = document.getElementById('aEquip').value;
+  const linha  = document.getElementById('aLinha').value;
+
+  // Filtrar registros
+  const regs = DADOS.registros.filter(r => {
+    if (tipo  !== 'todas' && r.tipo  !== tipo)  return false;
+    if (equip !== 'todos' && r.equip.trim() !== equip) return false;
+    if (linha !== 'todas' && r.linhaKey !== linha) return false;
+    return true;
+  });
+
+  // KPIs
+  const nOcorr   = regs.length;
+  const totalMin = regs.reduce((s,r) => s+r.mins, 0);
+  const totalH   = +(totalMin/60).toFixed(1);
+  const mttr     = nOcorr > 0 ? +(totalMin/nOcorr/60).toFixed(2) : 0;
+
+  // Tipo mais frequente
+  const tipoCount = {};
+  regs.forEach(r => { tipoCount[r.tipo||'—'] = (tipoCount[r.tipo||'—']||0)+1; });
+  const topTipo = Object.entries(tipoCount).sort((a,b)=>b[1]-a[1])[0];
+
+  document.getElementById('aKpiOcorr').textContent = nOcorr;
+  document.getElementById('aKpiTotal').textContent = fmtH(totalH);
+  document.getElementById('aKpiMTTR').textContent  = fmtH(mttr);
+  document.getElementById('aKpiTipo').textContent  = topTipo ? `${topTipo[0]} (${topTipo[1]}x)` : '—';
+
+  // Gráfico por Equipamento — top 10
+  dc('aEquipChart');
+  const equipMap = {};
+  regs.forEach(r => { equipMap[r.equip||'—'] = (equipMap[r.equip||'—']||0)+r.mins; });
+  const equipSorted = Object.entries(equipMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  if (equipSorted.length) {
+    CI['aEquipChart'] = new Chart(document.getElementById('aEquipChart'), {
+      type: 'bar',
+      data: {
+        labels: equipSorted.map(([e])=>e.length>20?e.substring(0,18)+'…':e),
+        datasets: [{
+          data: equipSorted.map(([,m])=>+(m/60).toFixed(1)),
+          backgroundColor: 'rgba(255,193,7,0.8)', borderWidth:0, borderRadius:3
+        }]
+      },
+      options: { indexAxis:'y', responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false},
+          tooltip:{backgroundColor:'#131620',callbacks:{label:ctx=>`${ctx.parsed.x}h parado`}}},
+        scales:{
+          x:{ticks:{color:'#bbb',font:{size:9}},grid:{color:'rgba(255,255,255,0.06)'},
+            title:{display:true,text:'Horas',color:'#bbb',font:{size:9}}},
+          y:{ticks:{color:'#ddd',font:{size:9}},grid:{display:false}}
+        }
+      }
+    });
+  }
+
+  // Gráfico por Tipo de Parada — donut
+  dc('aTipoChart');
+  const TIPO_CORES = {
+    'Preventiva':'#4a90d9','Corretiva elétrica':'#f44336',
+    'Corretiva mecânica':'#ffc107','Inspeção':'#26a69a',
+    'Troca de componente de desgaste':'#9b59b6',
+    'Operacional':'#ff7043'
+  };
+  if (Object.keys(tipoCount).length) {
+    const tipoEntries = Object.entries(tipoCount).sort((a,b)=>b[1]-a[1]);
+    CI['aTipoChart'] = new Chart(document.getElementById('aTipoChart'), {
+      type: 'doughnut',
+      data: {
+        labels: tipoEntries.map(([t])=>t),
+        datasets:[{
+          data: tipoEntries.map(([,n])=>n),
+          backgroundColor: tipoEntries.map(([t])=>TIPO_CORES[t]||'#888'),
+          borderWidth:1, borderColor:'#1a2230'
+        }]
+      },
+      options:{ responsive:true, maintainAspectRatio:false, cutout:'50%',
+        plugins:{
+          legend:{display:true,position:'right',
+            labels:{color:'#ddd',font:{size:9},boxWidth:10,padding:8}},
+          tooltip:{backgroundColor:'#131620',
+            callbacks:{label:ctx=>`${ctx.label}: ${ctx.parsed} ocorr.`}}
+        }
+      }
+    });
+  }
+
+  // Tabela de registros
+  const tbody = document.getElementById('aTabBody');
+  tbody.innerHTML = '';
+  document.getElementById('aRegistrosCount').textContent = `${regs.length} registros`;
+  const LINHA_COR = {brit:'#e8a020',l1:'#4a90d9',l2:'#9b59b6',l3:'#4caf50'};
+  regs.slice(0,200).forEach(r => {
+    const ti = tipoMotivo(r.tipo + (r.desc?' — '+r.desc:''));
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="color:#bbb;font-size:9px">${r.data.split('-').reverse().join('/')}</td>
+      <td><span style="font-size:9px;padding:1px 6px;border-radius:8px;background:${LINHA_COR[r.linhaKey]||'#888'}33;color:${LINHA_COR[r.linhaKey]||'#888'};font-weight:700">${r.linha}</span></td>
+      <td style="font-size:9px;color:#ddd">${r.equip||'—'}</td>
+      <td><span style="font-size:8px;padding:1px 5px;border-radius:8px;background:${ti.cor}22;color:${ti.cor}">${r.tipo||'—'}</span></td>
+      <td style="font-size:9px;color:#ccc;max-width:200px">${r.desc||'—'}</td>
+      <td style="text-align:center;color:#e8a020;font-size:9px">${r.hIni}</td>
+      <td style="text-align:center;color:#e8a020;font-size:9px">${r.hFim}</td>
+      <td style="text-align:center;font-weight:700;color:#f44336;font-size:10px">${fmtH(r.mins/60)}</td>`;
+    tbody.appendChild(tr);
+  });
+  if (regs.length > 200) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td colspan="8" style="text-align:center;color:#666;font-size:9px">... mais ${regs.length-200} registros (aplique filtros para reduzir)</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+/* ══ INIT ══ */
+window.addEventListener('DOMContentLoaded', () => {
+  // Sempre abre na aba de upload — dados zerados
+  goTab('upload', document.getElementById('btnUpload'));
+});
+
+/* ══ TOOLTIPS ══ */
+const TIPS = {
+  df:{title:'📊 Disponibilidade Física (DF)',body:`Percentual do tempo total em que o equipamento esteve disponível para produção.\n<div class="ht-formula">DF (%) = Horas Produzindo / Horas Totais × 100</div>Meta: ≥ 85%. Abaixo de 60% indica problemas críticos.`},
+  hp:{title:'✅ Horas Produzindo',body:`Total de horas com produção registrada (t > 0) no período.\n<div class="ht-formula">Horas Prod. = Σ horas com prod > 0</div>`},
+  hs:{title:'🔴 Horas Parada',body:`Total de horas com produção zero registrada.\n<div class="ht-formula">Horas Parada = Σ horas com prod = 0</div>`},
+  mtbf:{title:'⏱ MTBF',body:`Mean Time Between Failures — tempo médio entre falhas consecutivas. Quanto maior, mais confiável.\n<div class="ht-formula">MTBF = Horas Produzindo / Nº de interrupções</div>`},
+  mttr:{title:'🔧 MTTR',body:`Mean Time To Repair — tempo médio de reparo. Quanto menor, mais eficiente a manutenção.\n<div class="ht-formula">MTTR = Horas Paradas / Nº de eventos de parada</div>Meta: MTTR &lt; MTBF.`},
+  hpBar:{title:'📊 Horas por Dia',body:'Barras empilhadas mostrando horas produzindo (verde) vs parada (vermelho) por dia. Identifica rapidamente os dias mais críticos.'},
+  dfGauge:{title:'⚙️ Gauge de Disponibilidade',body:`Velocímetro da DF atual vs meta de 85%.\n<div class="ht-formula">Verde ≥ 85% | Amarelo 60–85% | Vermelho &lt; 60%</div>`},
+  distTempo:{title:'🍩 Distribuição do Tempo',body:'Proporção do tempo total em: Produzindo, Parada e Outros (sem registro).'},
+  impactantes:{title:'🔴 Top Impactantes',body:`Motivos de parada ordenados por horas de impacto, classificados por tipo de causa.\n<div class="ht-formula">% Impacto = Horas do motivo / Total horas paradas × 100</div>`},
+  mtbfComp:{title:'📊 MTBF vs MTTR',body:'Comparativo entre seções. Amarelo = MTBF (tempo funcionando antes de falhar). Vermelho = MTTR (tempo de reparo). Ideal: MTBF alto e MTTR baixo.'},
+  dfComp:{title:'📊 DF por Seção',body:'Disponibilidade Física comparativa. Verde ≥ 85%, amarelo 60–85%, vermelho &lt; 60%.'}
+};
+const TIP = document.getElementById('helpTooltip');
+document.addEventListener('mouseover',e=>{
+  const b=e.target.closest('.help-btn'); if(!b) return;
+  const t=TIPS[b.dataset.tip]; if(!t) return;
+  document.getElementById('htTitle').textContent=t.title;
+  document.getElementById('htBody').innerHTML=t.body;
+  TIP.style.display='block'; posicionaTip(e);
+});
+document.addEventListener('mousemove',e=>{ if(TIP.style.display==='block') posicionaTip(e); });
+document.addEventListener('mouseout',e=>{ if(e.target.closest('.help-btn')) TIP.style.display='none'; });
+function posicionaTip(e){
+  const tw=TIP.offsetWidth||300, th=TIP.offsetHeight||150;
+  let x=e.clientX+14, y=e.clientY+14;
+  if(x+tw>window.innerWidth-8) x=e.clientX-tw-14;
+  if(y+th>window.innerHeight-8) y=e.clientY-th-14;
+  TIP.style.left=Math.max(8,x)+'px'; TIP.style.top=Math.max(8,y)+'px';
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ABA RELATÓRIO DO DIA
+══════════════════════════════════════════════════════════════ */
+let R_MOT = {
+  brit: {"2026-06-01":[["Operacional ∥ Britador de facas ∥ Falta do operador do painel da britagem",12.0],["Inspeção ∥ Britador de facas ∥ Inspeção Geral",1.0],["Preventiva ∥ Britador de facas ∥ Lubrificação de rolamento / mancal",0.5]],"2026-06-02":[["Corretiva mecânica ∥ Britador de facas ∥ Troca de rolamento",11.0],["Preventiva ∥ Britador de facas ∥ Lubrificação de rolamento / mancal",1.0],["Corretiva mecânica ∥ TC 02 britagem ∥ Manutenção TC2",0.67],["Preventiva ∥ Britador de facas ∥ Aperto de parafusos do mancal",0.63]],"2026-06-03":[["Corretiva mecânica ∥ Britador de facas ∥ Troca de rolamento",10.0],["Corretiva mecânica ∥ Britador de facas ∥ Troca de rolamento",1.0],["Corretiva mecânica ∥ Britador de facas ∥ Aperto de parafusos do mancal",0.75],["Corretiva mecânica ∥ Britador de facas ∥ Aperto de parafusos do mancal",0.63],["Preventiva ∥ Britador de facas ∥ Lubrificação de rolamento / mancal",0.37]],"2026-06-04":[["Inspeção ∥ Britador de facas ∥ Troca de Facas",1.0],["Operacional ∥  ∥ Refeição",1.0],["Corretiva mecânica ∥ TC 02 britagem ∥ Manutenção TC2",0.67]],"2026-06-05":[["Preventiva ∥ Britador de facas ∥ Lubrificação",1.0],["Corretiva mecânica ∥ Britador de facas ∥ Aperto de parafusos do mancal",0.5]],"2026-06-06":[["Inspeção ∥ Britador de facas ∥ Inspeção Geral",2.0],["Corretiva mecânica ∥ Britador de facas ∥ Aperto de parafusos do mancal",0.42],["Corretiva mecânica ∥ TC 02 britagem ∥ Obstrução",0.33]],"2026-06-07":[["Corretiva mecânica ∥ Britador de facas ∥ Aperto de parafusos do mancal",3.5],["Preventiva ∥ Britador de facas ∥ Lubrificação",1.33],["Operacional ∥ TC 02 britagem ∥ Obstrução",1.0],["Preventiva ∥ Britador de facas ∥ Limpeza",0.45]],"2026-06-08":[["Corretiva mecânica ∥ Britador de facas ∥ Rotor solto / livre (chaveta escapou)",7.0],["Preventiva ∥ Britador de facas ∥ Lubrificação",4.0],["Corretiva mecânica ∥ TC 02 britagem ∥ Obstrução",1.0]],"2026-06-09":[["Corretiva mecânica ∥ Britador de facas ∥ Manutenção / troca de flange ou acoplamento",12.0],["Corretiva mecânica ∥ Britador de facas ∥ Manutenção volante do Britador",12.0]],"2026-06-10":[["Corretiva mecânica ∥ Britador de facas ∥ Manutenção volante do Britador",7.83],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",5.55],["Corretiva mecânica ∥ Britador de facas ∥ Manutenção na balata",0.95],["Operacional ∥  ∥ Pedra grande presa na boca / bica do moinho",0.62]],"2026-06-11":[["Corretiva mecânica ∥ Britador de facas ∥ Manutenção no redutor da TC",3.17],["Preventiva ∥ Britador de facas ∥ Lubrificação geral",1.0],["Operacional ∥ Britador de facas ∥ Engaiolamento de mataco",0.78]],"2026-06-12":[["Corretiva mecânica ∥ Britador de facas ∥ Serviço de solda — outros",12.0],["Corretiva mecânica ∥ Britador de facas ∥ Troca de rolamento",0.52],["Preventiva ∥ Britador de facas ∥ Aperto de parafusos do mancal",0.5]],"2026-06-13":[["Corretiva mecânica ∥ Britador de facas ∥ BRITAGEM PARADA QUEBROU O ROLETE DA TC 2",12.0],["Preventiva ∥ Britador de facas ∥ Lubrificação de rolamento / mancal",0.87],["Operacional ∥ Britador de facas ∥ 5s na tc2",0.52]],"2026-06-14":[["Corretiva mecânica ∥ TC 02 britagem ∥ Serviço de solda — outros",7.5],["Operacional ∥ Britador de facas ∥ Falta de operador de pá carregadeira",1.0],["Operacional ∥ Britador de facas ∥ Obstrução",0.35]],"2026-06-15":[["Operacional ∥ Britador de facas ∥ intervalo do almoco",1.17],["Corretiva mecânica ∥ Britador de facas ∥ Serviço de solda — outros",0.62],["Operacional ∥ Britador de facas ∥ Pedra grande presa na caixa do britador",0.5],["Operacional ∥ Britador de facas ∥ Pedra grande presa na caixa do britador",0.38],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.33]],"2026-06-16":[["Operacional ∥ Britador de facas ∥ Pedra grande presa na caixa do britador",3.5],["Operacional ∥ Britador de facas ∥ Pá carregadeira em manutenção",2.98],["Operacional ∥ Britador de facas ∥ Pedra grande presa na caixa do britador",0.7],["Operacional ∥ Britador de facas ∥ Obstrução",0.33],["Preventiva ∥ Britador de facas ∥ Limpeza ma TC 2",0.12]],"2026-06-17":[["Troca de componente de desgaste ∥ Britador de facas ∥ Inversão das facas",1.97],["Corretiva mecânica ∥ Britador de facas ∥ Chaveta solta / quebrada / soldada",1.83],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.92],["Operacional ∥ Britador de facas ∥ Pedra grande presa na caixa do britador",0.6],["Operacional ∥ Britador de facas ∥ Pedra grande presa na caixa do britador",0.38]],"2026-06-18":[["Operacional ∥ Britador de facas ∥ intervalo do almoco",1.33],["Troca de componente de desgaste ∥ Britador de facas ∥ Troca de Facas",1.33],["Corretiva mecânica ∥ Britador de facas ∥ foi feito solda nos cavalete dos rolete",1.0]]},
+  l1: {"2026-05-01":[["AGUARDANDO MATERIAL BRITADO",5.0],["AGUARDANDO MATERIAL BRITADO",5.0],["caixa do ciclone encheu",1.0],["INTERVALO PARA REFEIÇÃO",1.0],["DESOBSTRUÇÃO CAIXA DE RECEBIMENTO",0.3],["DESOBSTRUÇÃO CAIXA DE RECEBIMENTO",0.3]],"2026-05-02":[["linha parado centrifuga do bola em manutenção",1.2],["linha para testar o bola 01",0.2]],"2026-05-03":[["MANUTENÇÃO ELÉTRICA PROBLEMA NA REDE",2.0],["TROCA DA BOMBA DE REJEITO",0.5],["CAIXA DO BOTA FORA DERRAMANDO",0.4],["MANGUEIRA DA CENTRÍFUGA ESCAPOU DA ABRAÇADEIRA",0.4],["SOLDA NO CANO CENTRÍFUGA",0.3],["INSPEÇÃO DOS MARTELOS",0.2]],"2026-05-04":[["TROCA DA BOMBA REJEITO",3.0],["QUEDA DE ENERGIA",1.0],["QUEDA DE ENERGIA / TROCA DE MARTELO",1.0],["TROCA DE MARTELO",1.0],["LINHA PARADA TROCA BOMBA D'ÁGUA",0.5],["APERTO CORREIA CENTRÍFUGA CICLONE",0.4],["CAIXA DO CICLONE ENCHENDO",0.2]],"2026-05-05":[["OBSTRUÇÃO MM1 E MM3 / TROCA DE BALATA",4.0],["OUTROS",1.0]],"2026-05-06":[["QUEDA DE ENERGIA",3.0],["CAIXA ALIMENTADORA DE RD CHEIA",1.5],["TROCA DE MARTELOS / GRELHAS QUEBRADAS NO MM3",1.0],["PARADA PARA TROCA DE MARTELOS / FERRO NO MOINHO",0.7]],"2026-05-07":[["CHUVEIRO DA ALIMENTAÇÃO CAIU NO MM3",3.0],["INSPEÇÃO E TROCA DE MARTELO",1.5],["PARADA TROCA DE MARTELOS E AJUSTE GRELHAS",1.0],["PARADA TROCA DE MARTELOS",1.0],["PLANTA PARADA POR FALTA DE GRELHAS",1.0],["QUEDA DE ENERGIA",1.0],["DESOBSTRUÇÃO CAIXA / TROCA GRELHAS",0.5],["IRREGULARIDADE NO CORTE DO UNDERFLOW",0.3]],"2026-05-08":[["AGUARDANDO BARRA DE FERRO (QUEIXO) PARA FECHAMENTO DO MOINHO",6.0],["CAIU MARTELO NO MM01 — ROTOR LIVRE / OBSTRUÇÃO",3.0],["OBSTRUÇÃO NA CAIXA QUE ALIMENTA RD",3.0],["CAIU MARTELO MM01 — TURNO ANTERIOR",2.0],["CHUVEIRO DA ALIMENTAÇÃO CAIU DENTRO DO MM3",1.0],["APERTO PARAFUSOS MANCAIS / LUBRIFICAÇÃO",0.7],["SOLDA NA BICA",0.5]],"2026-05-09":[["INSPEÇÃO E TROCA DE MARTELO MM1 E MM3",5.5],["MM01 OBSTRUÍDO — CHAVETA DO VOLANTE / GRELHAS QUEBRADAS",3.0],["LINHA PARADA — AGUARDANDO LIBERAÇÃO",1.0],["OBSTRUÇÃO NA CAIXA QUE ALIMENTA RD",1.0]],"2026-05-10":[["TROCA DE ROLAMENTO DO MM01",9.0],["AGUARDANDO LIBERAÇÃO TROCA ROLAMENTO MM01",2.0],["BOMBA DE POLPA 1 PAROU / TROCA DE GRELHAS",2.0],["APERTO PARAFUSO MANCAL MM03",0.3],["CAIXA CHEIA DO TURNO ANTERIOR",0.3],["MATERIAL NÃO BRITÁVEL NO MOINHO",0.1]],"2026-05-11":[["OBSTRUÇÃO NO HIDROCICLONE COM PEDRA E BALATA",3.0],["CHAVETA DO MANCAL MM01 ESCAPOU — ROTOR LIVRE",2.0],["MARTELO DO MM02 ESCAPOU",1.0],["SOLDA NA CHAVETA DO MANCAL",0.7],["DESOBSTRUÇÃO MM01",0.6],["TROCA CORREIA DA BOMBA DO CICLONE",0.5]],"2026-05-12":[["QUEDA DE ENERGIA / TROCA DE CORREIA DA BOMBA DO CICLONE",4.0],["TROCA DE MARTELO MM01 E MM02",1.0],["TROCA DE ROLAMENTO MM1",1.0],["SUBSTITUIÇÃO DE CORREIAS DA BOMBA DO HIDROCICLONE",1.0],["LIMPEZA CAIXA / GRELHAS MM01",1.0],["INSPEÇÃO E TROCA DE MARTELOS",0.8]],"2026-05-13":[["QUEDA DE ENERGIA / QUEIMA SENSORES CENTRÍFUGAS",3.0],["TROCA ROLAMENTO MOINHO",1.0],["BALATA MM01 ARREBENTOU / OBSTRUÇÃO",1.0],["CAIXA DA SAÍDA DO MOINHO CHEIA",1.0],["MARTELO CAIU NO MM3 / QUEBROU GRELHAS",1.0],["CAIXA DO CICLONE ENCHENDO",0.2],["QUEDA DE ENERGIA",0.2]],"2026-05-14":[["FUROU TUBO DA BOMBA DO CICLONE — SOLDA",1.0],["TROCA DA TAMPA DO MANCAL MM1",1.0],["SOLDA DO MANCAL",1.0],["TROCA DE MARTELO MM01 / SOLDA BICA",0.5],["MARTELO DO MOINHO 02 QUEBROU",0.5],["FERRO NO MOINHO",0.5],["BOMBA DO BOTA FORA ENCHENDO",0.2]],"2026-05-15":[["TROCA DE MARTELO E SERVIÇO DE SOLDA",1.1],["MARTELO DO MM02 DEBULHOU / QUEBROU GRELHA",1.0],["TAMPA MANCAL E ROLAMENTO MM01",0.5],["TROCA MARTELOS MM3 / CORTE DE PINO COM SOLDA",0.5],["COLOCAÇÃO PARAFUSO REVESTIMENTO MM03",0.4],["DESOBSTRUÇÃO CAIXA DO MOINHO",0.1]],"2026-05-16":[["INSPEÇÃO MARTELOS / TROCA GRELHA MM03",1.4],["SOLDA NA BICA DO MOINHO 02",1.0],["PROCESSANDO MATERIAL RABO DE BICA",1.0],["COLOCAÇÃO PARAFUSO REVESTIMENTO / TROCA MARTELOS",0.6],["BAIXAR NÍVEL DA CAIXA",0.5],["APERTO PARAFUSO MANCAL MM1",0.3],["REGULAR NÍVEL DA CAIXA",0.3],["BAIXAR NÍVEL DA CAIXA",0.2]],"2026-05-17":[["TROCA REGISTRO DO CICLONE / TROCA MARTELO MM01 E MM02",1.8],["CENTRÍFUGA RD30-01 ROLANDO QUEBRADO",1.0],["ALIMENTAÇÃO BAIXA PARA TESTE",1.0],["REGULAGEM DE CICLONE",0.8],["TROCA DE MARTELOS",0.7],["BAIXAR NÍVEL DE CAIXA",0.1]],"2026-05-18":[["CAIXA QUE ALIMENTA CENTRÍFUGA CHEIA",2.4],["MATERIAL NÃO BRITADO NO MOINHO",1.0],["TROCA MARTELO MM01 E MM02",0.8],["CAIXA CONCENTRADORA DERRAMANDO",0.7],["RETIRADA DE BYPASS — OPERAR MM1 E MM3",0.7],["CAIXA SAÍDA DO MOINHO CHEIA",0.5],["MM01 DESARMOU E PAROU CHEIO",0.4]],"2026-05-19":[["FERRO NO MM3 / MARTELO QUEBROU",1.1],["FERRO NO MM1 / QUEBROU MARTELO E GRELHA",1.0],["PINO DO MARTELO MM02 TORTO",1.0],["CORREIA DA BOMBA DO CICLONE",1.0],["TROCA MARTELO MM1 E MM3 / MANUTENÇÃO CHUVEIRO",0.8],["OBSTRUÇÃO NO MM3",0.7],["TROCA MARTELO MM02",0.5],["OBSTRUÇÃO MM1 / FERRO",0.5],["MANUTENÇÃO CHUVEIRO",0.4],["CAIXA SAÍDA DO MOINHO ENCHENDO",0.3],["FERRO NO MOINHO / TROCA MARTELO",0.2]],"2026-05-20":[["BALATA MM1 ESTOUROU / MOINHO OBSTRUÍDO / TROCA MARTELO",3.0],["BALATA MM2 ESTOUROU / BYPASS — OPERAR MM1",1.7],["TROCA MARTELO MM3 / SOLDA GRELHA / GRELHAS NOVAS",1.6],["AJUSTE CHUVEIRO DE ÁGUA",0.5],["SOLDA NO CHUVEIRO DO MOINHO",0.3]],"2026-05-21":[["TROCA MARTELO MOINHO 1 / SOLDA NA TAMPA",5.0],["MANUTENÇÃO ROLAMENTO MANCAL MOINHO 3",5.0],["MARTELO DO MOINHO 02 DEBULHOU",0.5],["TROCA MARTELO MM1 / SOLDA TAMPA / MANUTENÇÃO ROLAMENTO MM3",0.4],["CAIXA QUE ALIMENTA CENTRÍFUGA CHEIA",0.3]],"2026-05-22":[["TROCA DE MARTELO MM1 E MM3",1.1],["CAIXA QUE ALIMENTA CENTRÍFUGA CHEIA",0.8]],"2026-06-01":[["Corretiva mecânica ∥ Bomba de rejeito ∥ Serviço de solda na bomba / tubulação de rejeito",1.25],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",1.0],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Serviço de solda — outros",1.0],["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de martelo",0.67],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.67],["Operacional ∥  ∥ Obstrução bica",0.63],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de grelha",0.63],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.33]],"2026-06-02":[["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca / reparo de eixo",1.0],["Operacional ∥ Moinho de bola 02 ∥ Obstrução no moinho de bola",0.82],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.67],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.67]],"2026-06-03":[["Corretiva mecânica ∥ Moinho de bola 01 ∥ Troca de operação para manutenção dos bolas",2.0],["Corretiva mecânica ∥ Bomba de rejeito ∥ Troca de Bomba",2.0],["Corretiva mecânica ∥ Bomba de rejeito ∥ Correia rasgada / danificada",1.0],["Operacional ∥ Moega ∥ Moega cheia",1.0],["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de martelo",0.75],["Operacional ∥ Caixa de Polpa ∥ Regulagem / ajuste do nível da caixa de polpa",0.65],["Corretiva mecânica ∥ Moinho de martelo 01 ∥ Retirada Bypass",0.5],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.33]],"2026-06-04":[["Operacional ∥ Bomba de rejeito ∥ Obstrução",4.5],["Corretiva mecânica ∥ Bomba de polpa 01 (8x6) ∥ Ineficiência da bomba",1.58],["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",0.68],["Operacional ∥ Caixa de Polpa ∥ Caixa de polpa cheia",0.58],["Operacional ∥ Moinho de martelo 01 ∥ Obstrução",0.47]],"2026-06-05":[["Operacional ∥ Moinho de martelo 01 ∥ Troca / substituição de balata",0.67],["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",0.63],["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",0.6],["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",0.5],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de grelha",0.45],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.1]],"2026-06-06":[["Corretiva elétrica ∥ Bomba de rejeito ∥ Motor queimado / superaquecido",7.2],["Corretiva mecânica ∥ Bomba de polpa 01 (8x6) ∥ Ineficiência da bomba",1.0],["Corretiva mecânica ∥ Moinho de martelo 01 ∥ Solda na Grelha",0.67],["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",0.58],["Corretiva mecânica ∥ Hidrociclone 01 ∥ Falha / obstrução no ciclone ou hidrociclone",0.5],["Corretiva elétrica ∥ Bomba de rejeito ∥ Motor queimado / superaquecido",0.33],["Corretiva mecânica ∥ Moinho de bola 02 ∥ Moinho de bola jogando material para fora / derramando",0.25]],"2026-06-07":[["Corretiva elétrica ∥ Bomba de rejeito ∥ Motor queimado / superaquecido",17.0],["Corretiva mecânica ∥ Moinho de bola 02 ∥ Falha ao partir - Moiho de bola parou cheio",7.0]],"2026-06-08":[["Corretiva mecânica ∥ Moinho de bola 02 ∥ Falha ao partir - Moiho de bola parou cheio",4.0],["Corretiva mecânica ∥ Bomba de rejeito ∥ Troca de motor da bomba",3.67],["Corretiva elétrica ∥ Bomba de rejeito ∥ Motor queimado / superaquecido",1.0],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.25],["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de martelo",0.25]],"2026-06-09":[["Operacional ∥ Moinho de martelo 01 ∥ Material não britável no moinho (ferro / objeto estranho)",2.27],["Corretiva mecânica ∥ Caixa de Polpa ∥ Serviço de solda — outros",2.0],["Operacional ∥ Centrífuga (RD) 02 L1 ∥ Obstrução",1.5],["Operacional ∥ Moinho de martelo 01 ∥ Obstrução bica",1.0],["Operacional ∥ Bomba de rejeito ∥ Vazamento na tubulação",0.63]],"2026-06-10":[["Corretiva mecânica ∥ Bomba de rejeito ∥ Ineficiência da bomba",10.92],["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",1.0],["Operacional ∥ Moinho de martelo 02 ∥ Moinho moendo grosso",0.58],["Operacional ∥  ∥ Obstrução",0.17],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.13]],"2026-06-11":[["Corretiva mecânica ∥ Bomba de rejeito ∥ Ineficiência da bomba",2.5],["Troca de componente de desgaste ∥ Hidrociclone L1 ∥ Troca de revestimento",1.67],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de balata",0.95]],"2026-06-12":[["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de martelo",4.5],["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de martelo",0.75],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.67],["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de grelha",0.62],["Preventiva ∥ Moinho de martelo 02 ∥ Aperto de parafusos do mancal",0.32],["Operacional ∥ Moinho de martelo 03 ∥ Moinho moendo grosso",0.27],["Operacional ∥ Moega ∥ Moega cheia",0.25]],"2026-06-13":[["Operacional ∥ Moinho de martelo 1 e 2 ∥ Aguardando material britado",5.0],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",1.37],["Operacional ∥ Moega ∥ Moega cheia",1.0],["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de martelo",0.8],["Corretiva mecânica ∥ Centrífuga (Falcon) 07 L1 bola ∥ Obstrução",0.75],["Corretiva elétrica ∥ Centrífuga (Falcon) 07 L1 bola ∥ Falha no inversor / variador de frequência",0.47]],"2026-06-14":[["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.83],["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de martelo",0.83],["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de grelha",0.78],["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",0.67],["Operacional ∥ Moinho de martelo 01 ∥ Pedra grande presa na boca / bica do moinho",0.33],["Preventiva ∥ Moinho de martelo 01 ∥ Aperto de parafusos do mancal",0.25]],"2026-06-15":[["Corretiva mecânica ∥ Moinho de martelo 02 ∥ troca do rolamento do volante",9.0],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.5],["Corretiva elétrica ∥ bomba de água limpa ∥ Ajuste na pressão",0.25]],"2026-06-16":[["Corretiva mecânica ∥ Moinho de martelo 01 ∥ Troca de volante",2.43],["Corretiva mecânica ∥ Moinho de martelo 02 ∥ Serviço de solda — outros",1.17],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.67],["Corretiva elétrica ∥ Centrífuga (Falcon) 07 L1 bola ∥ corrente alta / centrífuga parando",0.17],["Operacional ∥ Moinho de martelo 01 ∥ Obstrução",0.08]],"2026-06-17":[["Corretiva mecânica ∥ Moinho de martelo 01 ∥ Manutenção na balata",1.42],["Operacional ∥ Moinho de martelo 01 ∥ Material não britável no moinho (ferro / objeto estranho)",1.18],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.92],["Corretiva mecânica ∥ Moinho de martelo 02 ∥ Solda na bica",0.87],["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de martelo",0.58],["Corretiva mecânica ∥ Moinho de martelo 02 ∥ apertar parafuso do mancal",0.5],["Corretiva mecânica ∥ Hidrociclone L1 ∥ Serviço de solda — outros",0.5],["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",0.48],["Operacional ∥ Caixa de Polpa ∥ Ineficiência da bomba",0.33],["Corretiva mecânica ∥ Moinho de martelo 02 ∥ colocar parafuso do revestimento",0.28]],"2026-06-18":[["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de grelha",1.0],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.92],["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",0.58],["Corretiva mecânica ∥ Bomba de polpa 02 (6x4) CX 01 ∥ Ineficiência da bomba",0.5],["Corretiva mecânica ∥ Moinho de martelo 02 ∥ Apertar parafuso do mancal",0.45],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.38],["Operacional ∥ Moinho de martelo 01 ∥ Obstrução de bica do moinho",0.25],["Operacional ∥ Moinho de bola 01 ∥ Operacional",0.2]],"2026-06-19":[["Operacional ∥ Moinho de martelo 03 ∥ ",0.7],["Operacional ∥ Moinho de martelo 04 ∥ Troca de martelo",0.52],["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Troca de grelha",0.52]]},
+  l2: {"2026-06-03":[["Corretiva mecânica ∥ Bomba de rejeito ∥ Troca de correia da bomba",1.0],["Operacional ∥ Moega ∥ Moega cheia",1.0],["Operacional ∥ Bomba de polpa 02 (6x4) ∥ Regulagem / ajuste do nível da caixa de polpa",1.0],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução",0.8],["Corretiva mecânica ∥ Moinho de martelo 03 ∥ Material não britável no moinho (ferro / objeto estranho)",0.62]],"2026-06-07":[["Corretiva mecânica ∥ Alimentadora de sapata 02 ∥ Manutenção elétrica — falha ao partir",12.0],["Corretiva mecânica ∥ Alimentadora de sapata 02 ∥ Manutenção elétrica — falha ao partir",12.0]],"2026-06-09":[["Operacional ∥ Bomba de rejeito ∥ Vazamento na tubulação",6.0],["Operacional ∥ Moinho de martelo 03 ∥ Material não britável no moinho (ferro / objeto estranho)",5.5],["Corretiva mecânica ∥ Caixa de Polpa ∥ Serviço de solda — outros",2.0]],"2026-06-10":[["Corretiva elétrica ∥  ∥ Queda de energia elétrica",5.55],["Corretiva mecânica ∥ Bomba de rejeito ∥ Ineficiência da bomba",2.5],["Corretiva mecânica ∥ Bomba de rejeito ∥ Troca de Bomba",2.33],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",0.28],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.13],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução bica",0.12],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",0.1]],"2026-06-11":[["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",2.25],["Corretiva mecânica ∥ Bomba de rejeito ∥ Ineficiência da bomba",2.0],["Troca de componente de desgaste ∥ Hidrociclone L1 ∥ Troca de revestimento",1.67],["Troca de componente de desgaste ∥ Moinho de martelo 03 ∥ Troca de martelo",1.17],["Operacional ∥ Alimentadora de sapata 02 ∥ Obstrução interna do moinho",0.62],["Corretiva mecânica ∥ Hidrociclone L1 ∥ Obstrução",0.58],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",0.35],["Corretiva elétrica ∥ Centrífuga (RD) 03 L2 ∥ Falha na automação / sistema de controle",0.1]],"2026-06-12":[["Troca de componente de desgaste ∥ Moinho de martelo 03 ∥ Troca de martelo",1.22],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",1.07],["Operacional ∥ Moega ∥ Moega cheia",0.47]],"2026-06-13":[["Operacional ∥ Moinho de martelo 03 ∥ Aguardando material britado",5.0],["Operacional ∥  ∥ Moega cheia",1.0],["Operacional ∥ Moega ∥ Moega cheia",1.0],["Operacional ∥ Moega ∥ Moega cheia",1.0],["Corretiva mecânica ∥ Centrífuga (Falcon) 07 L1 bola ∥ Obstrução",0.75],["Corretiva elétrica ∥ Alimentadora de sapata 02 ∥ Falha na automação / sistema de controle",0.5],["Corretiva elétrica ∥ Centrífuga (Falcon) 07 L1 bola ∥ Falha no inversor / variador de frequência",0.47],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",0.33],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",0.17]],"2026-06-14":[["Operacional ∥ Moinho de martelo 03 ∥ Pedra grande presa na boca / bica do moinho",1.23]],"2026-06-15":[["Troca de componente de desgaste ∥ Moinho de martelo 03 ∥ Troca de martelo",0.55],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.33],["Corretiva elétrica ∥ bomba de água limpa ∥ Ajuste na pressão",0.25]],"2026-06-16":[["Troca de componente de desgaste ∥ Moinho de martelo 03 ∥ Troca de martelo",0.83],["Troca de componente de desgaste ∥ Moinho de martelo 03 ∥ Reposição de Grelha",0.47],["Corretiva elétrica ∥ Centrífuga (Falcon) 07 L1 bola ∥ corrente alta / centrífuga parando",0.17]],"2026-06-17":[["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",1.08],["Operacional ∥ Caixa de Polpa ∥ Ineficiência da bomba",1.0],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.92],["Corretiva mecânica ∥ Hidrociclone L1 ∥ Serviço de solda — outros",0.5],["Operacional ∥ Moinho de martelo 03 ∥ Material não britável no moinho (ferro / objeto estranho)",0.22],["Troca de componente de desgaste ∥ Moinho de martelo 03 ∥ Troca de martelo",0.18]],"2026-06-18":[["Corretiva mecânica ∥ Moinho de bola 01 ∥ ARREBENTOU ACOPLAMENTO DO BOLA 01",2.0],["Troca de componente de desgaste ∥ Moinho de martelo 03 ∥ Troca de martelo",0.68],["Corretiva mecânica ∥ Bomba de polpa 02 (6x4) CX 01 ∥ Ineficiência da bomba",0.5],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.38]]},
+  l3: {"2026-05-01":[["AGUARDANDO MATERIAL BRITADO",9.0],["DESOBSTRUÇÃO CAIXA DE RECEBIMENTO DOS MOINHOS",1.5],["DESOBSTRUÇÃO CAIXA — ALTA DENSIDADE",0.4],["DESOBSTRUÇÃO CAIXA — RAÍZES",0.3],["DESOBSTRUÇÃO CAIXA — RAÍZES",0.3],["DESOBSTRUÇÃO CAIXA",0.2],["DESOBSTRUÇÃO CAIXA",0.1]],"2026-05-02":[["CAIXA SAÍDA DO MOINHO CHEIA",1.8],["INTERVALO PARA REFEIÇÃO",1.0]],"2026-05-03":[["MANUTENÇÃO ELÉTRICA PROBLEMA NA REDE",2.0],["TROCA GRELHAS MM07 E MM09 / AJUSTE GRELHAS",0.7],["TROCA DE MARTELO MM07",0.6],["TROCA CORREIA CENTRÍFUGA DO BOLA",0.5],["TROCA BOMBA DE REJEITO",0.5],["SOLDA NO MM9 — AJUSTE DO QUEIXO",0.5],["CAIXA DO BOTA FORA DERRAMANDO",0.4],["DESOBSTRUÇÃO CAIXA DE RECEBIMENTO",0.2]],"2026-05-04":[["TROCA DA BOMBA REJEITO",3.0],["QUEDA DE ENERGIA",2.0],["TROCA DE MARTELO",2.0],["DESOBSTRUÇÃO CAIXA DE RECEBIMENTO",1.0],["CAIXA QUE ALIMENTA AS RDs CHEIA",0.5],["APERTO CORREIA CENTRÍFUGA CICLONE",0.3],["TROCA DE MARTELO MM9",0.2],["TROCA DE MARTELO MM09",0.2]],"2026-05-05":[["MANUTENÇÃO NOS MOINHOS MM07 E MM09 / TROCA GRELHAS E MARTELOS",7.0],["OPERANDO APENAS COM MM09",1.0],["MANUTENÇÃO PC17",1.0],["GAXETA NA BOMBA DO HIDROCICLONE",1.0],["REPOSIÇÃO DE GRELHA / CAIXA DO CICLONE DERRAMANDO",1.0],["SECAR MOEGA / TROCA DE MATERIAL",1.0]],"2026-05-06":[["QUEDA DE ENERGIA",3.0],["INTERVALO DE REFEIÇÃO",1.0],["TROCA MARTELOS / GRELHAS QUEBRADAS MM3 E MM9",1.0],["TROCA MARTELOS / GRELHAS MM9",1.0],["RECOLOCAÇÃO GRELHAS MM9",1.0],["TROCA DE MARTELOS MM09",0.4],["MM09 PAROU CHEIO — DESOBSTRUÇÃO",0.4],["APERTO PARAFUSO REVESTIMENTO MOINHO DE BOLA",0.2]],"2026-05-07":[["SEM GRELHAS PARA MM7",9.0],["PARADA POR FALTA DE GRELHAS",6.0],["TROCA MARTELOS E REVESTIMENTO MM07",1.0],["OPERANDO APENAS MM9",0.5]],"2026-05-08":[["TROCA DE GRELHAS / FECHAMENTO MARTELOS / RETIRADA FLAP",3.0],["OBSTRUÇÃO NA BICA DO MM9",3.0],["INSPEÇÃO E TROCA MARTELO MM7 E MM9",1.5],["AJUSTE NAS GRELHAS — MOENDO GROSSO",0.7],["PICO DE ENERGIA / FALHA COMUNICAÇÃO SALA DE CONTROLE",0.6],["BOMBA POLPA MB3 JOGANDO MATERIAL",0.5],["BOMBA D'ÁGUA LIMPA PAROU",0.2]],"2026-05-09":[["OBSTRUÇÃO NA BICA DO MM9",4.0],["REPOSIÇÃO GRELHAS MM9 / TROCA MARTELO MM9 E MM7",2.5],["TROCA MARTELOS MM09 E MM07 / SOLDA MM7",0.7],["APERTO PARAFUSO MANCAL MM07",0.2]],"2026-05-10":[["MOTOR DO ALIMENTADOR AQUECEU / CHEIROU QUEIMADO",2.0],["INSPEÇÃO MOINHO — CENTRÍFUGAS VIBRANDO / TROCA MARTELO MM7",2.0],["AQUECIMENTO MOTOR REDUTOR ALIMENTADOR / FALHA INVERSOR",2.0],["QUEDA DE ENERGIA",1.5],["DESOBSTRUÇÃO MM9",1.0],["QUEDA DE ENERGIA",1.0],["QUEDA DE ENERGIA",1.0]],"2026-05-11":[["MOTOR DO ALIMENTADOR QUEIMADO",12.0],["MOTOR DO ALIMENTADOR QUEIMADO — LINHA PARADA",6.0],["INÍCIO DA LINHA 03",1.0]],"2026-05-12":[["AGUARDANDO MANUTENÇÃO ELÉTRICA NO MOTOR DO ALIMENTADOR",12.0],["MOTOR DO ALIMENTADOR QUEIMADO",10.0]],"2026-05-13":[["AGUARDANDO MANUTENÇÃO ELÉTRICA NO MOTOR DO ALIMENTADOR",12.0],["MANUTENÇÃO ELÉTRICA / FALHA AO TENTAR PARTIR",10.0],["MANUTENÇÃO ELÉTRICA / TROCA MOTOR-REDUTOR ALIMENTADOR",1.0]],"2026-05-14":[["MANUTENÇÃO ELÉTRICA / FALHA AO TENTAR PARTIR",12.0],["TESTE MOTOR DO ALIMENTADOR",2.0],["FERRO NO MOINHO",0.5]],"2026-05-15":[["MM07 NÃO QUIS PARTIR — PROBLEMA ELÉTRICO / MOINHO OBSTRUIU 2X",10.0],["TROCA DA QUILOTINA DA CENTRÍFUGA DO BOLA",1.0],["ENTUPIU CANO DA BOMBA DO CICLONE",1.0],["MM07 — PROBLEMA ELÉTRICO / SEGUNDA OCORRÊNCIA",1.0],["APERTO PARAFUSO MANCAL MM07",0.2]],"2026-05-16":[["FALHA NO INVERSOR DO MM07 — AGUARDANDO ELETRICISTA",1.0],["BOMBA DO BOTA FORA ENCHENDO",1.0],["APERTO PARAFUSOS MANCAL MM09",1.0],["DESOBSTRUÇÃO BOMBA MOINHO DE BOLA MB03",0.3],["METAL NÃO BRITÁVEL DENTRO DO MM07",0.2]],"2026-05-17":[["OBSTRUÇÃO NO MOINHO DE BOLA",8.0],["REGULAGEM DE CICLONE",0.8]],"2026-05-18":[["OBSTRUÇÃO NO MOINHO DE BOLA",12.0],["OBSTRUÇÃO MOINHO DE BOLA — SEM INVESTIMENTO / LINHA PARADA",12.0]],"2026-05-19":[["MANUTENÇÃO MOINHO DE BOLA 3 E 4 / CENTRÍFUGAS",24.0]],"2026-05-20":[["MANUTENÇÃO MOINHO DE BOLA 3 E 4 / CENTRÍFUGAS",14.0],["MARTELO MM07 DEBULHOU / QUEBROU GRELHA",0.5],["BICA MM07 ENTUPIU",0.3],["PINO DO MARTELO PEGOU NO QUEIXO",0.2]],"2026-05-21":[["BALATA DO MM9 ESTOUROU / TROCA DE BALATA",2.0],["CORREIA COM FALHA",1.0],["MARTELO VIBRANDO",1.0],["PROCESSANDO MATERIAL RABO DE BICA",1.0],["MATERIAL GRUDADO NA CAIXA DA MOEGA",1.0],["CAIU FERRO NO MOINHO",1.0],["ALIMENTAÇÃO BAIXA — MARTELOS COM BAIXA QUALIDADE",0.9],["PEDRA GRANDE NA BICA DO MM07",0.5],["CAIXA QUE ALIMENTA RD CHEIA",0.4],["ENTUPIMENTO DO MM07",0.4],["INSPEÇÃO MARTELO MM07",0.2]],"2026-05-22":[],"2026-06-01":[["Corretiva elétrica ∥ Alimentadora de sapata 03 ∥ Manutenção TC3",15.0],["Operacional ∥ Moinho de martelo 04 ∥ Obstrução",0.75],["Operacional ∥ Moinho de bola 04 ∥ Moinho moendo grosso",0.67],["Operacional ∥ Moinho de bola 04 ∥ Desobstrução interna do moinho",0.37]],"2026-06-02":[["Corretiva mecânica ∥ TC 3 ∥ Correia desalinhada / patinando",1.0],["Corretiva mecânica ∥ Bomba de polpa 04 ∥ Não operando corretamente",1.0],["Operacional ∥ Moinho de martelo 05 ∥ Obstrução",1.0],["Troca de componente de desgaste ∥ Moinho de martelo 03 ∥ Troca de martelo",0.67],["Inspeção ∥ Hidrociclone 03 ∥ Inspeção Geral",0.5],["Troca de componente de desgaste ∥ Moinho de martelo 04 ∥ Troca de martelo",0.5],["Operacional ∥ Moinho de martelo 04 ∥ Moinho moendo grosso",0.5]],"2026-06-03":[["Corretiva mecânica ∥ Bomba de rejeito ∥ Troca de Bomba",3.0],["Corretiva mecânica ∥ Bomba de rejeito ∥ Correia rasgada / danificada",1.0],["Corretiva elétrica ∥ Hidrociclone 03 ∥ Obstrução",1.0],["Operacional ∥ Moega ∥ Moega cheia",1.0],["Troca de componente de desgaste ∥ Moinho de martelo 03 ∥ ",0.5]],"2026-06-04":[["Operacional ∥ Bomba de rejeito ∥ Obstrução",4.0],["Corretiva elétrica ∥ moinho de martelo 4 e 5 ∥ Manutenção elétrica — falha ao partir",1.42],["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Troca de grelha",1.0],["Corretiva elétrica ∥ Bomba de polpa 03 (8x6) ∥ ",1.0],["Operacional ∥ Bomba de rejeito ∥ Ineficiência da bomba",0.75]],"2026-06-05":[["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Solda na Grelha",1.0],["Operacional ∥ Moinho de martelo 04 ∥ Obstrução",1.0],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.75],["Troca de componente de desgaste ∥ Moinho de martelo 04 ∥ Troca de martelo",0.5],["Operacional ∥ Moinho de martelo 05 ∥ Obstrução na caixa de saída do moinho",0.33],["Inspeção ∥ moinho de martelo 4 e 5 ∥ Inspeção de martelos e grelhas",0.32]],"2026-06-06":[["Corretiva elétrica ∥ Bomba de rejeito ∥ Motor queimado / superaquecido",7.0],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.75],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.5],["Corretiva mecânica ∥ Moinho de martelo 05 ∥ Solda na bica",0.33],["Corretiva elétrica ∥ Bomba de rejeito ∥ Motor queimado / superaquecido",0.33],["Inspeção ∥ Centrífuga (RD) 06 L3 bola ∥ Inspeção Geral",0.17]],"2026-06-07":[["Corretiva elétrica ∥ Bomba de rejeito ∥ Motor queimado / superaquecido",12.0],["Corretiva elétrica ∥ Bomba de rejeito ∥ Motor queimado / superaquecido",6.0]],"2026-06-08":[["Corretiva mecânica ∥ Bomba de rejeito ∥ Troca de motor",5.08],["Corretiva mecânica ∥ Moinho de martelo 04 ∥ Solda na bica",1.0],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.33],["Troca de componente de desgaste ∥ Moinho de martelo 04 ∥ Troca de martelo",0.33],["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Troca de martelo",0.33],["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Troca / substituição de balata",0.33],["Troca de componente de desgaste ∥ Moinho de martelo 04 ∥ Troca de martelo",0.25],["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Troca de martelo",0.25]],"2026-06-09":[["Corretiva mecânica ∥ Bomba de polpa 03 (8x6) CX 02 ∥ Serviço de solda na bomba / tubulação de rejeito",12.0],["Corretiva mecânica ∥ Bomba de rejeito ∥ Encanamento furado",0.63],["Corretiva mecânica ∥ Moinho de martelo 04 ∥ Solda na bica",0.63],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.5],["Operacional ∥ Moinho de martelo 04 ∥ Moinho moendo grosso",0.3]],"2026-06-10":[["Troca de componente de desgaste ∥ Hidrociclone L3 ∥ Troca de revestimento",10.0],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",5.55],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.33],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.13]],"2026-06-11":[["Corretiva elétrica ∥ Centrífuga (RD) 08 L3 bola ∥ Falha na automação / sistema de controle",8.83],["Corretiva mecânica ∥ Bomba de rejeito ∥ Ineficiência da bomba",2.0],["Troca de componente de desgaste ∥ Hidrociclone L3 ∥ Troca de revestimento",1.17],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.87],["Operacional ∥ Moinho de martelo 5 ∥ Obstrução interna do moinho",0.67],["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Troca de grelha",0.63]],"2026-06-12":[["Corretiva elétrica ∥ Centrífuga (RD) 08 L3 bola ∥ Falha na automação / sistema de controle",2.95],["Operacional ∥ moinho de martelo 4 e 5 ∥ Obstrução de bica do moinho",1.8],["Operacional ∥ moinho de martelo 4 e 5 ∥ Moinho moendo grosso",0.82],["Operacional ∥ moinho de martelo 4 e 5 ∥ Moinho moendo grosso",0.67],["Operacional ∥ Moinho de martelo 04 ∥ Moinho moendo grosso",0.5],["Operacional ∥ Moinho de martelo 05 ∥ Moinho moendo grosso",0.5]],"2026-06-13":[["Operacional ∥ moinho de martelo 4 e 5 ∥ Aguardando material britado",5.0],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",1.0],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.82]],"2026-06-14":[["Preventiva ∥ Centrífuga (RD) 05 L3 ∥ Manutenção preventiva programada",1.0],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.5],["Operacional ∥ Moinho de martelo 04 ∥ Obstrução de bica do moinho",0.13]],"2026-06-15":[["Corretiva elétrica ∥ Centrífuga (RD) 05 L3 ∥ Manutenção elétrica — falha ao partir",1.33],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.92],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.88],["Corretiva mecânica ∥ Hidrociclone L3 ∥ Serviço de solda — outros",0.42],["Operacional ∥ Moinho de martelo 04 ∥ Obstrução",0.33],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.33],["Corretiva elétrica ∥ bomba de água limpa ∥ Ajuste na pressão",0.25],["Operacional ∥ Moinho de martelo 05 ∥ Obstrução interna do moinho",0.08]],"2026-06-16":[["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Troca de grelha",2.9],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.58],["Troca de componente de desgaste ∥ Moinho de martelo 04 ∥ Troca de martelo",0.5],["Operacional ∥ Moinho de martelo 04 ∥ Obstrução de bica do moinho",0.4],["Operacional ∥ Moinho de martelo 05 ∥ Material não britável no moinho (ferro / objeto estranho)",0.33]],"2026-06-17":[["Troca de componente de desgaste ∥ Hidrociclone L3 ∥ Troca de revestimento",10.95],["Corretiva mecânica ∥ Moinho de bola 04 ∥ Recolocado borracha do moinho de bola",1.07],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.92],["Corretiva elétrica ∥ Centrífuga (RD) 08 L3 bola ∥ corrente alta / centrífuga parando",0.33],["Troca de componente de desgaste ∥ Moinho de martelo 04 ∥ Troca de martelo",0.33],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.32],["Corretiva elétrica ∥ Centrífuga (RD) 08 L3 bola ∥ corrente alta / centrífuga parando",0.17],["Operacional ∥ Moinho de martelo 04 ∥ Obstrução bica",0.15],["Operacional ∥ Moinho de martelo 05 ∥ Material não britável no moinho (ferro / objeto estranho)",0.08]],"2026-06-18":[["Troca de componente de desgaste ∥ Hidrociclone L3 ∥ Colocar parafuso do revestimento",5.73],["Corretiva elétrica ∥ Centrífuga (Falcon) 06 L1 bola ∥ Corretiva no motor",1.62],["Operacional ∥ Moinho de martelo 04 ∥ Moinho moendo grosso",0.45],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.42],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.38],["Operacional ∥ Moinho de martelo 04 ∥ Obstrução de bica do moinho",0.35],["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Troca de martelo",0.3],["Operacional ∥ Moinho de martelo 04 ∥ Obstrução de bica do moinho",0.22]],"2026-06-19":[["Operacional ∥ Troca de componente de desgaste ∥ Troca de martelo",0.52],["Operacional ∥ Troca de componente de desgaste ∥ ",0.52]]}
+};
+
+let R_KPI = {
+  brit: {"2026-06-01":{"hp":10.5,"hs":13.5,"df":43.8},"2026-06-02":{"hp":10.7,"hs":13.3,"df":44.6},"2026-06-03":{"hp":11.2,"hs":12.8,"df":46.7},"2026-06-04":{"hp":21.3,"hs":2.7,"df":88.8},"2026-06-05":{"hp":22.5,"hs":1.5,"df":93.8},"2026-06-06":{"hp":21.2,"hs":2.8,"df":88.3},"2026-06-07":{"hp":17.7,"hs":6.3,"df":73.8},"2026-06-08":{"hp":12.0,"hs":12.0,"df":50.0},"2026-06-09":{"hp":0,"hs":24,"df":0.0},"2026-06-10":{"hp":9.1,"hs":14.9,"df":37.9},"2026-06-11":{"hp":19.0,"hs":5.0,"df":79.2},"2026-06-12":{"hp":11.0,"hs":13.0,"df":45.8},"2026-06-13":{"hp":10.6,"hs":13.4,"df":44.2},"2026-06-14":{"hp":15.2,"hs":8.8,"df":63.3},"2026-06-15":{"hp":21.0,"hs":3.0,"df":87.5},"2026-06-16":{"hp":16.4,"hs":7.6,"df":68.3},"2026-06-17":{"hp":18.3,"hs":5.7,"df":76.2},"2026-06-18":{"hp":20.3,"hs":3.7,"df":84.6},"2026-06-19":{"hp":24.0,"hs":0.0,"df":100.0}},
+  l1: {"2026-05-01":{"hp":11.5,"hs":12.5,"df":47.8},"2026-05-02":{"hp":22.6,"hs":1.4,"df":94.1},"2026-05-03":{"hp":16.1,"hs":7.9,"df":67.2},"2026-05-04":{"hp":16.9,"hs":7.1,"df":70.5},"2026-05-05":{"hp":19.0,"hs":5.0,"df":79.2},"2026-05-06":{"hp":16.8,"hs":7.2,"df":69.9},"2026-05-07":{"hp":13.7,"hs":10.3,"df":57.0},"2026-05-08":{"hp":7.3,"hs":16.7,"df":30.6},"2026-05-09":{"hp":13.5,"hs":10.5,"df":56.2},"2026-05-10":{"hp":10.3,"hs":13.7,"df":42.8},"2026-05-11":{"hp":15.2,"hs":8.8,"df":63.4},"2026-05-12":{"hp":14.2,"hs":9.8,"df":59.0},"2026-05-13":{"hp":16.7,"hs":7.3,"df":69.4},"2026-05-14":{"hp":18.3,"hs":5.7,"df":76.4},"2026-05-15":{"hp":20.3,"hs":3.7,"df":84.6},"2026-05-16":{"hp":16.7,"hs":7.3,"df":69.7},"2026-05-17":{"hp":17.6,"hs":6.4,"df":73.3},"2026-05-18":{"hp":17.6,"hs":6.4,"df":73.3},"2026-05-19":{"hp":16.6,"hs":7.4,"df":69.2},"2026-05-20":{"hp":16.9,"hs":7.0,"df":70.6},"2026-05-21":{"hp":12.8,"hs":11.2,"df":53.1},"2026-05-22":{"hp":22.1,"hs":1.9,"df":92.0},"2026-06-01":{"hp":17.8,"hs":6.2,"df":74.2},"2026-06-02":{"hp":20.9,"hs":3.1,"df":87.1},"2026-06-03":{"hp":15.8,"hs":8.2,"df":65.8},"2026-06-04":{"hp":16.2,"hs":7.8,"df":67.5},"2026-06-05":{"hp":21.0,"hs":3.0,"df":87.5},"2026-06-06":{"hp":13.5,"hs":10.5,"df":56.2},"2026-06-07":{"hp":0,"hs":24,"df":0.0},"2026-06-08":{"hp":14.8,"hs":9.2,"df":61.7},"2026-06-09":{"hp":16.6,"hs":7.4,"df":69.2},"2026-06-10":{"hp":11.2,"hs":12.8,"df":46.7},"2026-06-11":{"hp":18.9,"hs":5.1,"df":78.8},"2026-06-12":{"hp":16.6,"hs":7.4,"df":69.2},"2026-06-13":{"hp":14.6,"hs":9.4,"df":60.8},"2026-06-14":{"hp":20.3,"hs":3.7,"df":84.6},"2026-06-15":{"hp":14.2,"hs":9.8,"df":59.2},"2026-06-16":{"hp":19.5,"hs":4.5,"df":81.2},"2026-06-17":{"hp":16.9,"hs":7.1,"df":70.4},"2026-06-18":{"hp":19.7,"hs":4.3,"df":82.1},"2026-06-19":{"hp":22.3,"hs":1.7,"df":92.9}},
+  l2: {"2026-06-01":{"hp":0,"hs":24.0,"df":0.0},"2026-06-02":{"hp":0,"hs":24.0,"df":0.0},"2026-06-03":{"hp":7.6,"hs":16.4,"df":31.7},"2026-06-04":{"hp":0,"hs":24.0,"df":0.0},"2026-06-05":{"hp":0,"hs":24.0,"df":0.0},"2026-06-06":{"hp":0,"hs":24.0,"df":0.0},"2026-06-07":{"hp":0,"hs":24,"df":0.0},"2026-06-09":{"hp":10.5,"hs":13.5,"df":43.8},"2026-06-10":{"hp":13.0,"hs":11.0,"df":54.2},"2026-06-11":{"hp":15.3,"hs":8.7,"df":63.8},"2026-06-12":{"hp":21.2,"hs":2.8,"df":88.3},"2026-06-13":{"hp":13.8,"hs":10.2,"df":57.5},"2026-06-14":{"hp":22.8,"hs":1.2,"df":95.0},"2026-06-15":{"hp":22.9,"hs":1.1,"df":95.4},"2026-06-16":{"hp":22.5,"hs":1.5,"df":93.8},"2026-06-17":{"hp":20.1,"hs":3.9,"df":83.8},"2026-06-18":{"hp":20.4,"hs":3.6,"df":85.0},"2026-06-19":{"hp":24.0,"hs":0.0,"df":100.0}},
+  l3: {"2026-05-01":{"hp":12.1,"hs":11.9,"df":50.3},"2026-05-02":{"hp":20.2,"hs":3.8,"df":84.0},"2026-05-03":{"hp":14.5,"hs":9.5,"df":60.5},"2026-05-04":{"hp":14.2,"hs":9.8,"df":59.4},"2026-05-05":{"hp":12.0,"hs":12.0,"df":50.0},"2026-05-06":{"hp":16.0,"hs":8.0,"df":66.8},"2026-05-07":{"hp":7.5,"hs":16.5,"df":31.2},"2026-05-08":{"hp":14.0,"hs":10.0,"df":58.4},"2026-05-09":{"hp":16.5,"hs":7.5,"df":68.8},"2026-05-10":{"hp":13.5,"hs":10.5,"df":56.2},"2026-05-11":{"hp":3.0,"hs":21.0,"df":12.5},"2026-05-12":{"hp":2.0,"hs":22.0,"df":8.3},"2026-05-13":{"hp":1.0,"hs":23.0,"df":4.2},"2026-05-14":{"hp":8.5,"hs":15.5,"df":35.4},"2026-05-15":{"hp":10.8,"hs":13.2,"df":44.8},"2026-05-16":{"hp":17.5,"hs":6.5,"df":73.1},"2026-05-17":{"hp":15.2,"hs":8.8,"df":63.2},"2026-05-18":{"hp":0.0,"hs":24.0,"df":0.0},"2026-05-19":{"hp":0.0,"hs":24.0,"df":0.0},"2026-05-20":{"hp":8.9,"hs":15.1,"df":37.2},"2026-05-21":{"hp":14.6,"hs":9.4,"df":60.8},"2026-05-22":{"hp":24.0,"hs":0.0,"df":100.0},"2026-06-01":{"hp":7.2,"hs":16.8,"df":30.0},"2026-06-02":{"hp":18.8,"hs":5.2,"df":78.3},"2026-06-03":{"hp":17.5,"hs":6.5,"df":72.9},"2026-06-04":{"hp":15.8,"hs":8.2,"df":65.8},"2026-06-05":{"hp":20.1,"hs":3.9,"df":83.8},"2026-06-06":{"hp":14.9,"hs":9.1,"df":62.1},"2026-06-07":{"hp":6.0,"hs":18.0,"df":25.0},"2026-06-08":{"hp":16.1,"hs":7.9,"df":67.1},"2026-06-09":{"hp":9.9,"hs":14.1,"df":41.2},"2026-06-10":{"hp":8.0,"hs":16.0,"df":33.3},"2026-06-11":{"hp":9.8,"hs":14.2,"df":40.8},"2026-06-12":{"hp":16.8,"hs":7.2,"df":70.0},"2026-06-13":{"hp":17.2,"hs":6.8,"df":71.7},"2026-06-14":{"hp":22.4,"hs":1.6,"df":93.3},"2026-06-15":{"hp":19.5,"hs":4.5,"df":81.2},"2026-06-16":{"hp":19.3,"hs":4.7,"df":80.4},"2026-06-17":{"hp":9.7,"hs":14.3,"df":40.4},"2026-06-18":{"hp":14.5,"hs":9.5,"df":60.4},"2026-06-19":{"hp":23.0,"hs":1.0,"df":95.8}}
+};
+
+let PROD_PLANTA = {"resumo":[{"data":"2026-06-01","dia":1,"brit":2154940.0,"l1":1757900.0,"l2":0.0,"l3":587710.0,"total":2345610.0},{"data":"2026-06-02","dia":2,"brit":1395660.0,"l1":1267940.0,"l2":0.0,"l3":1410150.0,"total":2678090.0},{"data":"2026-06-03","dia":3,"brit":706900.0,"l1":920210.0,"l2":206440.0,"l3":1059450.0,"total":2186100.0},{"data":"2026-06-04","dia":4,"brit":1875020.0,"l1":831020.0,"l2":0.0,"l3":1028760.0,"total":1859780.0},{"data":"2026-06-05","dia":5,"brit":2434390.0,"l1":1285490.0,"l2":0.0,"l3":1215450.0,"total":2500940.0},{"data":"2026-06-06","dia":6,"brit":2359570.0,"l1":856550.0,"l2":0.0,"l3":1005450.0,"total":1862000.0},{"data":"2026-06-07","dia":7,"brit":2605400.0,"l1":0.0,"l2":0.0,"l3":400530.0,"total":400530.0},{"data":"2026-06-08","dia":8,"brit":987370.0,"l1":671380.0,"l2":0.0,"l3":929640.0,"total":1601020.0},{"data":"2026-06-09","dia":9,"brit":0.0,"l1":657290.0,"l2":281560.0,"l3":793480.0,"total":1732330.0},{"data":"2026-06-10","dia":10,"brit":1068180.0,"l1":407720.0,"l2":536030.0,"l3":559540.0,"total":1503290.0},{"data":"2026-06-11","dia":11,"brit":1336870.0,"l1":787890.0,"l2":397090.0,"l3":638593.0,"total":1823573.0},{"data":"2026-06-12","dia":12,"brit":877840.0,"l1":755400.0,"l2":645730.0,"l3":937090.0,"total":2338220.0},{"data":"2026-06-13","dia":13,"brit":1451850.0,"l1":933420.0,"l2":334320.0,"l3":1107070.0,"total":2374810.0},{"data":"2026-06-14","dia":14,"brit":1931450.0,"l1":988390.0,"l2":554390.0,"l3":1270090.0,"total":2812870.0},{"data":"2026-06-15","dia":15,"brit":3065870.0,"l1":422090.0,"l2":847000.0,"l3":1375890.0,"total":2644980.0},{"data":"2026-06-16","dia":16,"brit":2181780.0,"l1":855790.0,"l2":482720.0,"l3":1125600.0,"total":2464110.0},{"data":"2026-06-17","dia":17,"brit":2314550.0,"l1":987050.0,"l2":491700.0,"l3":561612.0,"total":2040362.0},{"data":"2026-06-18","dia":18,"brit":1062910.0,"l1":944800.0,"l2":448000.0,"l3":835080.0,"total":2227880.0},{"data":"2026-06-19","dia":19,"brit":0.0,"l1":0.0,"l2":0.0,"l3":0.0,"total":0.0},{"data":"2026-06-20","dia":20,"brit":0.0,"l1":0.0,"l2":0.0,"l3":0.0,"total":0.0},{"data":"2026-06-21","dia":21,"brit":0.0,"l1":0.0,"l2":0.0,"l3":0.0,"total":0.0},{"data":"2026-06-22","dia":22,"brit":0.0,"l1":0.0,"l2":0.0,"l3":0.0,"total":0.0},{"data":"2026-06-23","dia":23,"brit":0.0,"l1":0.0,"l2":0.0,"l3":0.0,"total":0.0},{"data":"2026-06-24","dia":24,"brit":0.0,"l1":0.0,"l2":0.0,"l3":0.0,"total":0.0},{"data":"2026-06-25","dia":25,"brit":0.0,"l1":0.0,"l2":0.0,"l3":0.0,"total":0.0},{"data":"2026-06-26","dia":26,"brit":0.0,"l1":0.0,"l2":0.0,"l3":0.0,"total":0.0},{"data":"2026-06-27","dia":27,"brit":0.0,"l1":0.0,"l2":0.0,"l3":0.0,"total":0.0},{"data":"2026-06-28","dia":28,"brit":0.0,"l1":0.0,"l2":0.0,"l3":0.0,"total":0.0},{"data":"2026-06-29","dia":29,"brit":0.0,"l1":0.0,"l2":0.0,"l3":0.0,"total":0.0},{"data":"2026-06-30","dia":30,"brit":0.0,"l1":0.0,"l2":0.0,"l3":0.0,"total":0.0}],"prod_linha":{"brit":{"2026-06-01":{"conch":330,"prod":1650},"2026-06-02":{"conch":284,"prod":1420},"2026-06-03":{"conch":181,"prod":905},"2026-06-04":{"conch":421,"prod":2105},"2026-06-05":{"conch":517,"prod":2585},"2026-06-06":{"conch":505,"prod":2525},"2026-06-07":{"conch":540,"prod":2700},"2026-06-08":{"conch":229,"prod":1145},"2026-06-09":{"conch":0,"prod":0},"2026-06-10":{"conch":192,"prod":960},"2026-06-11":{"conch":339,"prod":1695},"2026-06-12":{"conch":280,"prod":1400},"2026-06-13":{"conch":270,"prod":1350},"2026-06-14":{"conch":366,"prod":1830},"2026-06-15":{"conch":569,"prod":2845},"2026-06-16":{"conch":457,"prod":2285},"2026-06-17":{"conch":487,"prod":2435},"2026-06-18":{"conch":362,"prod":1810},"2026-06-19":{"conch":50,"prod":250},"2026-06-20":{"conch":0,"prod":0},"2026-06-21":{"conch":0,"prod":0},"2026-06-22":{"conch":0,"prod":0},"2026-06-23":{"conch":0,"prod":0},"2026-06-24":{"conch":0,"prod":0},"2026-06-25":{"conch":0,"prod":0},"2026-06-26":{"conch":0,"prod":0},"2026-06-27":{"conch":0,"prod":0},"2026-06-28":{"conch":0,"prod":0},"2026-06-29":{"conch":0,"prod":0},"2026-06-30":{"conch":0,"prod":0}},"l1":{"2026-06-01":{"conch":310,"prod":1240},"2026-06-02":{"conch":230,"prod":920},"2026-06-03":{"conch":190,"prod":760},"2026-06-04":{"conch":199,"prod":796},"2026-06-05":{"conch":309,"prod":1236},"2026-06-06":{"conch":207,"prod":828},"2026-06-07":{"conch":0,"prod":0},"2026-06-08":{"conch":159,"prod":636},"2026-06-09":{"conch":121,"prod":484},"2026-06-10":{"conch":96,"prod":384},"2026-06-11":{"conch":192,"prod":768},"2026-06-12":{"conch":187,"prod":748},"2026-06-13":{"conch":194,"prod":776},"2026-06-14":{"conch":192,"prod":768},"2026-06-15":{"conch":86,"prod":344},"2026-06-16":{"conch":214,"prod":856},"2026-06-17":{"conch":203,"prod":812},"2026-06-18":{"conch":243,"prod":972},"2026-06-19":{"conch":31,"prod":124},"2026-06-20":{"conch":0,"prod":0},"2026-06-21":{"conch":0,"prod":0},"2026-06-22":{"conch":0,"prod":0},"2026-06-23":{"conch":0,"prod":0},"2026-06-24":{"conch":0,"prod":0},"2026-06-25":{"conch":0,"prod":0},"2026-06-26":{"conch":0,"prod":0},"2026-06-27":{"conch":0,"prod":0},"2026-06-28":{"conch":0,"prod":0},"2026-06-29":{"conch":0,"prod":0},"2026-06-30":{"conch":0,"prod":0}},"l2":{"2026-06-01":{"conch":0,"prod":0},"2026-06-02":{"conch":0,"prod":0},"2026-06-03":{"conch":48,"prod":192},"2026-06-04":{"conch":0,"prod":0},"2026-06-05":{"conch":0,"prod":0},"2026-06-06":{"conch":0,"prod":0},"2026-06-07":{"conch":0,"prod":0},"2026-06-08":{"conch":0,"prod":0},"2026-06-09":{"conch":59,"prod":236},"2026-06-10":{"conch":113,"prod":452},"2026-06-11":{"conch":102,"prod":408},"2026-06-12":{"conch":152,"prod":593},"2026-06-13":{"conch":83,"prod":332},"2026-06-14":{"conch":127,"prod":508},"2026-06-15":{"conch":188,"prod":752},"2026-06-16":{"conch":139,"prod":556},"2026-06-17":{"conch":108,"prod":432},"2026-06-18":{"conch":116,"prod":464},"2026-06-19":{"conch":17,"prod":68},"2026-06-20":{"conch":0,"prod":0},"2026-06-21":{"conch":0,"prod":0},"2026-06-22":{"conch":0,"prod":0},"2026-06-23":{"conch":0,"prod":0},"2026-06-24":{"conch":0,"prod":0},"2026-06-25":{"conch":0,"prod":0},"2026-06-26":{"conch":0,"prod":0},"2026-06-27":{"conch":0,"prod":0},"2026-06-28":{"conch":0,"prod":0},"2026-06-29":{"conch":0,"prod":0},"2026-06-30":{"conch":0,"prod":0}},"l3":{"2026-06-01":{"conch":103,"prod":412},"2026-06-02":{"conch":289,"prod":1156},"2026-06-03":{"conch":199,"prod":796},"2026-06-04":{"conch":199,"prod":796},"2026-06-05":{"conch":245,"prod":980},"2026-06-06":{"conch":230,"prod":920},"2026-06-07":{"conch":73,"prod":292},"2026-06-08":{"conch":208,"prod":832},"2026-06-09":{"conch":153,"prod":612},"2026-06-10":{"conch":156,"prod":624},"2026-06-11":{"conch":146,"prod":584},"2026-06-12":{"conch":190,"prod":760},"2026-06-13":{"conch":269,"prod":1076},"2026-06-14":{"conch":266,"prod":1064},"2026-06-15":{"conch":247,"prod":988},"2026-06-16":{"conch":262,"prod":1048},"2026-06-17":{"conch":109,"prod":436},"2026-06-18":{"conch":213,"prod":852},"2026-06-19":{"conch":65,"prod":260},"2026-06-20":{"conch":0,"prod":0},"2026-06-21":{"conch":0,"prod":0},"2026-06-22":{"conch":0,"prod":0},"2026-06-23":{"conch":0,"prod":0},"2026-06-24":{"conch":0,"prod":0},"2026-06-25":{"conch":0,"prod":0},"2026-06-26":{"conch":0,"prod":0},"2026-06-27":{"conch":0,"prod":0},"2026-06-28":{"conch":0,"prod":0},"2026-06-29":{"conch":0,"prod":0},"2026-06-30":{"conch":0,"prod":0}}},"material_tot":{"brit":{"Alto teor":3504,"Baixo teor":2875},"l1":{"Alto teor":1446,"Baixo teor":1755,"Rabo de bica":162},"l2":{"Baixo teor":948,"Alto teor":304},"l3":{"Baixo teor":2036,"Alto teor":1465,"Rabo de bica":18}}};
+
+/* ══════════════════════════════════════════════════════════════
+   PRODUÇÃO DA PLANTA
+   Fonte: PROD_PLANTA.resumo (balança em kg → t) + prod_linha/material
+   ══════════════════════════════════════════════════════════════ */
+
+// Formata toneladas com separador de milhar
+function fmtT(kg) {
+  const t = kg / 1000;
+  if (t >= 1000) return (t/1000).toFixed(2).replace('.', ',') + ' kt';
+  return t.toLocaleString('pt-BR', {minimumFractionDigits:1, maximumFractionDigits:1}) + ' t';
+}
+function kgToT(kg) { return kg / 1000; }
+
+function initProducaoDates() {
+  const datas = PROD_PLANTA.resumo
+    .filter(r => r.total > 0 || r.brit > 0)
+    .map(r => r.data).sort();
+  const ini = document.getElementById('ppIni');
+  const fim = document.getElementById('ppFim');
+  if (ini && !ini.value && datas.length) ini.value = datas[0];
+  if (fim && !fim.value && datas.length) fim.value = datas[datas.length-1];
+}
+
+function resetProducao() {
+  document.getElementById('ppIni').value = '';
+  document.getElementById('ppFim').value = '';
+  initProducaoDates();
+  renderProducao();
+}
+
+function renderProducao() {
+  initProducaoDates();
+  const ini = document.getElementById('ppIni').value;
+  const fim = document.getElementById('ppFim').value;
+
+  // Filtra resumo pelo período + apenas dias com produção
+  let dados = PROD_PLANTA.resumo.filter(r => (r.total > 0 || r.brit > 0));
+  if (ini) dados = dados.filter(r => r.data >= ini);
+  if (fim) dados = dados.filter(r => r.data <= fim);
+  dados.sort((a,b) => a.data.localeCompare(b.data));
+
+  // ── KPIs ──
+  const totBrit   = dados.reduce((s,r)=>s+r.brit, 0);
+  const totMoagem = dados.reduce((s,r)=>s+r.total, 0);
+  const totGeral  = totBrit + totMoagem;
+  const nDias     = dados.length;
+  const media     = nDias > 0 ? totMoagem / nDias : 0;
+  const melhor    = dados.reduce((mx,r)=> r.total > (mx?mx.total:-1) ? r : mx, null);
+
+  document.getElementById('ppKpiTotal').textContent  = fmtT(totGeral);
+  document.getElementById('ppKpiBrit').textContent   = fmtT(totBrit);
+  document.getElementById('ppKpiMoagem').textContent = fmtT(totMoagem);
+  document.getElementById('ppKpiMedia').textContent  = fmtT(media);
+  if (melhor) {
+    document.getElementById('ppKpiMelhor').textContent = fmtT(melhor.total);
+    const dd = melhor.data;
+    document.getElementById('ppKpiMelhorData').textContent = dd.slice(8)+'/'+dd.slice(5,7);
+  } else {
+    document.getElementById('ppKpiMelhor').textContent = '—';
+    document.getElementById('ppKpiMelhorData').textContent = '—';
+  }
+
+  // ── Gráfico barras empilhadas por linha ──
+  dc('ppBarChart');
+  if (dados.length) {
+    CI['ppBarChart'] = new Chart(document.getElementById('ppBarChart'), {
+      type:'bar',
+      data:{
+        labels: dados.map(r => r.data.slice(8)+'/'+r.data.slice(5,7)),
+        datasets:[
+          {label:'Britador', data:dados.map(r=>kgToT(r.brit)), backgroundColor:'#e8a020CC', borderWidth:0},
+          {label:'Linha 1',  data:dados.map(r=>kgToT(r.l1)),   backgroundColor:'#4caf50CC', borderWidth:0},
+          {label:'Linha 2',  data:dados.map(r=>kgToT(r.l2)),   backgroundColor:'#ff7043CC', borderWidth:0},
+          {label:'Linha 3',  data:dados.map(r=>kgToT(r.l3)),   backgroundColor:'#9b59b6CC', borderWidth:0},
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{
+          legend:{display:true, position:'top', labels:{color:'#ccc', font:{size:10}, boxWidth:12, padding:8}},
+          tooltip:{backgroundColor:'#131620',
+            callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y.toLocaleString('pt-BR',{maximumFractionDigits:1})} t`}}
+        },
+        scales:{
+          x:{stacked:true, ticks:{color:'#ccc',font:{size:9}}, grid:{display:false}},
+          y:{stacked:true, ticks:{color:'#ccc',font:{size:9},callback:v=>v+' t'}, grid:{color:'rgba(255,255,255,0.06)'}}
+        }
+      }
+    });
+  }
+
+  // ── Pizza distribuição por linha (moagem) ──
+  dc('ppPieChart');
+  const somaL1 = dados.reduce((s,r)=>s+r.l1,0);
+  const somaL2 = dados.reduce((s,r)=>s+r.l2,0);
+  const somaL3 = dados.reduce((s,r)=>s+r.l3,0);
+  if (somaL1+somaL2+somaL3 > 0) {
+    CI['ppPieChart'] = new Chart(document.getElementById('ppPieChart'), {
+      type:'doughnut',
+      data:{
+        labels:['Linha 1','Linha 2','Linha 3'],
+        datasets:[{data:[kgToT(somaL1),kgToT(somaL2),kgToT(somaL3)],
+          backgroundColor:['#4caf50','#ff7043','#9b59b6'], borderWidth:1, borderColor:'#1a2230'}]
+      },
+      options:{responsive:true,maintainAspectRatio:false,cutout:'45%',
+        plugins:{
+          legend:{display:true,position:'bottom',labels:{color:'#ccc',font:{size:10},boxWidth:12,padding:8}},
+          tooltip:{backgroundColor:'#131620',
+            callbacks:{label:c=>`${c.label}: ${c.parsed.toLocaleString('pt-BR',{maximumFractionDigits:1})} t`}}
+        }
+      }
+    });
+  }
+
+  // ── Linha evolução produção total ──
+  dc('ppLineChart');
+  if (dados.length) {
+    CI['ppLineChart'] = new Chart(document.getElementById('ppLineChart'), {
+      type:'line',
+      data:{
+        labels: dados.map(r => r.data.slice(8)+'/'+r.data.slice(5,7)),
+        datasets:[{
+          label:'Moagem Total', data:dados.map(r=>kgToT(r.total)),
+          borderColor:'#B09D7C', backgroundColor:'#B09D7C22',
+          fill:true, tension:0.3, pointRadius:3, pointBackgroundColor:'#B09D7C', borderWidth:2
+        }]
+      },
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{backgroundColor:'#131620',
+          callbacks:{label:c=>` ${c.parsed.y.toLocaleString('pt-BR',{maximumFractionDigits:1})} t`}}},
+        scales:{
+          x:{ticks:{color:'#ccc',font:{size:9}},grid:{display:false}},
+          y:{ticks:{color:'#ccc',font:{size:9},callback:v=>v+' t'},grid:{color:'rgba(255,255,255,0.06)'}}
+        }
+      }
+    });
+  }
+
+  // ── Material por linha (conchadas) ──
+  dc('ppMatChart');
+  const matTot = PROD_PLANTA.material_tot;
+  const todosMat = [...new Set(Object.values(matTot).flatMap(m=>Object.keys(m)))];
+  const MAT_COR = {'Alto teor':'#e8a020','Baixo teor':'#5A739A','Rabo de bica':'#26a69a'};
+  const linhas = [['brit','Britador'],['l1','Linha 1'],['l2','Linha 2'],['l3','Linha 3']];
+  if (todosMat.length) {
+    CI['ppMatChart'] = new Chart(document.getElementById('ppMatChart'), {
+      type:'bar',
+      data:{
+        labels: linhas.map(([,nome])=>nome),
+        datasets: todosMat.map(mat => ({
+          label: mat,
+          data: linhas.map(([k])=> (matTot[k] && matTot[k][mat]) ? matTot[k][mat] : 0),
+          backgroundColor: (MAT_COR[mat]||'#888')+'CC', borderWidth:0
+        }))
+      },
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{
+          legend:{display:true,position:'top',labels:{color:'#ccc',font:{size:10},boxWidth:12,padding:8}},
+          tooltip:{backgroundColor:'#131620',callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y} conchadas`}}
+        },
+        scales:{
+          x:{stacked:true,ticks:{color:'#ccc',font:{size:10}},grid:{display:false}},
+          y:{stacked:true,ticks:{color:'#ccc',font:{size:9}},grid:{color:'rgba(255,255,255,0.06)'},title:{display:true,text:'Conchadas',color:'#bbb',font:{size:10}}}
+        }
+      }
+    });
+  }
+
+  // ── Tabela ──
+  document.getElementById('ppTabInfo').textContent =
+    ini && fim ? `${ini.slice(8)+'/'+ini.slice(5,7)} a ${fim.slice(8)+'/'+fim.slice(5,7)} · ${nDias} dia${nDias!==1?'s':''}` : '';
+  const tbody = document.getElementById('ppTbody');
+  tbody.innerHTML = '';
+  const fmtTd = kg => kg>0 ? (kg/1000).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}) : '—';
+  dados.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid #1e2a38';
+    const dd = r.data.slice(8)+'/'+r.data.slice(5,7);
+    tr.innerHTML = `
+      <td style="padding:7px 12px;color:#ddd">${dd}</td>
+      <td style="padding:7px 12px;text-align:right;color:#e8a020">${fmtTd(r.brit)}</td>
+      <td style="padding:7px 12px;text-align:right;color:#4caf50">${fmtTd(r.l1)}</td>
+      <td style="padding:7px 12px;text-align:right;color:#ff7043">${fmtTd(r.l2)}</td>
+      <td style="padding:7px 12px;text-align:right;color:#9b59b6">${fmtTd(r.l3)}</td>
+      <td style="padding:7px 12px;text-align:right;font-weight:700;color:#B09D7C">${fmtTd(r.total)}</td>`;
+    tbody.appendChild(tr);
+  });
+  // Total
+  const tfoot = document.getElementById('ppTfoot');
+  tfoot.innerHTML = `
+    <tr style="background:#141c28;font-weight:700;border-top:2px solid #B09D7C">
+      <td style="padding:9px 12px;color:#B09D7C">TOTAL</td>
+      <td style="padding:9px 12px;text-align:right;color:#e8a020">${fmtTd(totBrit)}</td>
+      <td style="padding:9px 12px;text-align:right;color:#4caf50">${fmtTd(somaL1)}</td>
+      <td style="padding:9px 12px;text-align:right;color:#ff7043">${fmtTd(somaL2)}</td>
+      <td style="padding:9px 12px;text-align:right;color:#9b59b6">${fmtTd(somaL3)}</td>
+      <td style="padding:9px 12px;text-align:right;color:#B09D7C">${fmtTd(totMoagem)}</td>
+    </tr>`;
+}
+
+function initRelatorio() {
+  const dates = [...new Set([
+    ...Object.keys(R_KPI.brit||{}),
+    ...Object.keys(R_KPI.l1||{}),
+    ...Object.keys(R_KPI.l2||{}),
+    ...Object.keys(R_KPI.l3||{})
+  ])].sort();
+  const rDataEl = document.getElementById('rData');
+  if (rDataEl) { rDataEl.min = dates[0]; rDataEl.max = dates[dates.length-1]; rDataEl.value = dates[dates.length-1]; }
+  document.getElementById('rLinha').value = 'l1';
+  renderRelatorio();
+}
+
+function renderRelatorio() {
+  const d     = document.getElementById('rData').value;
+  const linha = document.getElementById('rLinha').value;
+  const nomeL = linha==='l1' ? 'Moagem L1' : linha==='l2' ? 'Moagem L2' : 'Moagem L3';
+  const corL  = linha==='l1' ? '#4a90d9' : linha==='l2' ? '#9b59b6' : '#4caf50';
+
+  // KPIs — distingue "dia sem dado registrado" de "dia com DF real = 0%"
+  const temDado = !!((R_KPI[linha]||{})[d]);
+  const kpi = (R_KPI[linha]||{})[d] || {hp:0, hs:0, df:0};
+  const kdf = document.getElementById('rKpiDF');
+  const khp = document.getElementById('rKpiHP');
+  const khs = document.getElementById('rKpiHS');
+  if (!temDado) {
+    kdf.textContent = '—'; kdf.style.color = '#888';
+    khp.textContent = '—';
+    document.getElementById('rKpiHPSub').textContent = 'Sem dados';
+    khs.textContent = '—';
+    document.getElementById('rKpiHSSub').textContent = 'Sem dados';
+  } else {
+    const dfCor = kpi.df>=85?'#4caf50':kpi.df>=60?'#ffc107':'#f44336';
+    kdf.textContent = kpi.df.toFixed(1)+'%'; kdf.style.color=dfCor;
+    khp.textContent = fmtH(kpi.hp);
+    document.getElementById('rKpiHPSub').textContent = `de 24h totais`;
+    khs.textContent = fmtH(kpi.hs);
+    document.getElementById('rKpiHSSub').textContent = kpi.hs>0?(kpi.hs/24*100).toFixed(0)+'% do dia':'Sem paradas';
+  }
+
+  // KPI Produção do Dia — balança (kg) da linha em PROD_PLANTA.resumo
+  // Fallback: se balança = 0 mas há produção estimada (conchadas), usa prod_linha
+  let prodKg = 0, fonteProd = '';
+  if (typeof PROD_PLANTA !== 'undefined') {
+    const rResumo = PROD_PLANTA.resumo.find(r => r.data === d);
+    if (rResumo && (rResumo[linha]||0) > 0) {
+      prodKg = rResumo[linha];          // balança (kg)
+      fonteProd = 'balanca';
+    } else {
+      // Fallback: produção estimada (toneladas) das conchadas
+      const pl = (PROD_PLANTA.prod_linha[linha]||{})[d];
+      if (pl && (pl.prod||0) > 0) {
+        prodKg = pl.prod * 1000;        // prod em t → kg
+        fonteProd = 'estimada';
+      }
+    }
+  }
+  const prodT   = prodKg/1000;
+  const prodEl  = document.getElementById('rKpiProd');
+  const prodSub = document.getElementById('rKpiProdSub');
+  if (prodKg > 0) {
+    prodEl.textContent = prodT.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}) + ' t';
+    if (fonteProd === 'balanca') {
+      const rR = PROD_PLANTA.resumo.find(r => r.data === d);
+      const totDia = rR ? (rR.total||0) : 0;
+      prodSub.textContent = totDia>0 ? (prodKg/totDia*100).toFixed(0)+'% da moagem do dia' : 'balança da linha';
+    } else {
+      prodSub.textContent = 'produção estimada';
+    }
+  } else {
+    prodEl.textContent = '—';
+    prodSub.textContent = 'sem produção';
+  }
+
+  // Motivos
+  const mots = ((R_MOT[linha]||{})[d] || []).filter(m => Array.isArray(m) && m.length===2 && m[1]>0);
+  const top = mots[0];
+  document.getElementById('rKpiTop').textContent  = top ? top[0] : '—';
+  document.getElementById('rKpiTopH').textContent = top ? top[1]+'h parada' : '';
+  document.getElementById('rKpiN').textContent     = mots.length || '—';
+
+  // Título
+  const dFmt = d ? d.split('-').reverse().join('/') : '—';
+  const titulo = `Impactantes ${nomeL} — ${dFmt}`;
+  document.getElementById('rGraficoTitulo').textContent = titulo;
+  document.getElementById('rTabelaHeader').textContent = `📋 Detalhamento — ${nomeL} — ${dFmt}`;
+  document.getElementById('rTituloInfo').textContent = !temDado
+    ? 'Nenhum dado para este dia'
+    : (mots.length ? `${mots.length} ocorrências registradas` : 'Dia sem paradas registradas — 100% produtivo');
+
+  // Gráfico barras
+  if(CI['rBarChart']){ CI['rBarChart'].destroy(); delete CI['rBarChart']; }
+  const maxH = mots.length ? mots[0][1] : 1;
+  if(mots.length) {
+    // Quebra label em múltiplas linhas de até 28 chars (mantém texto completo)
+    function wrapLabel(str, maxW) {
+      const words = str.split(' ');
+      const lines = [];
+      let cur = '';
+      words.forEach(w => {
+        if ((cur+' '+w).trim().length <= maxW) { cur = (cur+' '+w).trim(); }
+        else { if (cur) lines.push(cur); cur = w; }
+      });
+      if (cur) lines.push(cur);
+      return lines;
+    }
+    const labels = mots.map(m => wrapLabel(m[0], 28));
+    const fullLabels = mots.map(m => m[0]); // para tooltip
+    const values = mots.map(m => m[1]);
+    const colors = values.map(v => v===maxH ? '#e8a020' : corL+'cc');
+
+    CI['rBarChart'] = new Chart(document.getElementById('rBarChart'), {
+      type:'bar',
+      data:{
+        labels,
+        datasets:[{
+          label:'Horas Paradas',
+          data: values,
+          backgroundColor: colors,
+          borderRadius: 4,
+          borderWidth: 0,
+        }]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{
+          legend:{display:false},
+          tooltip:{
+            backgroundColor:'#131620',titleColor:'#e8a020',bodyColor:'#e0e0e0',
+            callbacks:{
+              title: ctx => fullLabels[ctx[0].dataIndex],
+              label: ctx => `  ${ctx.parsed.y}h paradas`
+            }
+          }
+        },
+        scales:{
+          x:{
+            ticks:{color:'#ccc',font:{size:10},maxRotation:0,autoSkip:false},
+            grid:{display:false},
+          },
+          y:{
+            ticks:{color:'#ccc',font:{size:10},callback:v=>Math.floor(v)+'h'},
+            grid:{color:'rgba(255,255,255,0.08)'},
+            title:{display:true,text:'Horas Paradas',color:'#bbb',font:{size:11}}
+          }
+        }
+      }
+    });
+  } else {
+    const ctx = document.getElementById('rBarChart').getContext('2d');
+    ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
+    ctx.font='14px Segoe UI'; ctx.fillStyle='#555'; ctx.textAlign='center';
+    ctx.fillText('Nenhuma parada registrada neste dia', ctx.canvas.width/2, 80);
+  }
+
+  // Tabela
+  const tbody = document.getElementById('rTabelaBody');
+  tbody.innerHTML = '';
+  if(!mots.length){
+    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#555;padding:20px">Nenhum dado disponível para este dia.</td></tr>';
+    return;
+  }
+  const totalHS = mots.reduce((s,m)=>s+m[1],0);
+  mots.forEach(([mot,h],i)=>{
+    const pct = totalHS>0 ? (h/totalHS*100) : 0;
+    const rankCls = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-n';
+    const barPct  = maxH>0 ? (h/maxH*100).toFixed(0) : 0;
+    const barCor  = i===0 ? '#e8a020' : corL;
+    const tr = document.createElement('tr');
+    tr.innerHTML=`
+      <td><span class="rank ${rankCls}">${i+1}</span></td>
+      <td style="line-height:1.5;max-width:420px">${mot}</td>
+      <td style="text-align:center;font-weight:700;color:#e8a020">${h}h</td>
+      <td><div class="bar-bg"><div class="bar-fill" style="width:${barPct}%;background:${barCor}"></div></div></td>
+      <td style="text-align:center;color:#bbb">${pct.toFixed(1)}%</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ── Captura JPEG ── */
+function gerarImagem() {
+  const btn = document.getElementById('imgBtn');
+  btn.textContent = '⏳ Capturando...';
+  btn.disabled = true;
+
+  // Captura a aba ativa
+  const alvo = document.querySelector('.tab-content.active') || document.getElementById('tab-dashboard');
+  const nomeAba = (alvo.id || 'bi').replace('tab-','');
+  const data = new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
+  const nomeArq = `BI_Planta_${nomeAba}_${data}.jpeg`;
+
+  html2canvas(alvo, {
+    backgroundColor: '#0f1117',
+    scale: 2,               // resolução 2x para boa qualidade
+    useCORS: true,
+    logging: false,
+    allowTaint: true,
+    windowWidth: alvo.scrollWidth,
+    windowHeight: alvo.scrollHeight,
+    scrollX: 0,
+    scrollY: 0,
+  }).then(canvas => {
+    const link = document.createElement('a');
+    link.download = nomeArq;
+    link.href = canvas.toDataURL('image/jpeg', 0.92);
+    link.click();
+  }).catch(err => {
+    console.error('Erro na captura:', err);
+    alert('Erro ao gerar imagem. Tente novamente.');
+  }).finally(() => {
+    btn.textContent = '📷 Salvar Imagem';
+    btn.disabled = false;
+  });
+}
+
+/* Fim do script */
+
+/* ── PDF ── */
+const NOMES_ABA = {
+  'dashboard': '📊 Dashboard',
+  'diario':    '📅 Visualização Diária',
+  'relatorio': '📈 Relatório do Dia'
+};
+
+function abrirModalPDF() {
+  // Descobre aba ativa
+  const ativa = document.querySelector('.tab-content.active');
+  const id = ativa ? ativa.id.replace('tab-','') : 'dashboard';
+  document.getElementById('pdfAbaLabel').textContent = NOMES_ABA[id] || id;
+  const modal = document.getElementById('pdfModal');
+  modal.style.display = 'flex';
+  // Fecha ao clicar fora
+  modal.onclick = e => { if(e.target === modal) modal.style.display='none'; };
+}
+
+function doPrint(modo) {
+  document.getElementById('pdfModal').style.display = 'none';
+  const body = document.body;
+
+  if (modo === 'aba') {
+    const ativa = document.querySelector('.tab-content.active');
+    if (ativa) ativa.classList.add('print-target');
+    body.classList.add('print-aba');
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        body.classList.remove('print-aba');
+        if (ativa) ativa.classList.remove('print-target');
+      }, 800);
+    }, 200);
+
+  } else {
+    // Garante que dashboard e relatorio estão visíveis
+    ['tab-dashboard','tab-relatorio'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('active');
+    });
+    body.classList.add('print-all');
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        body.classList.remove('print-all');
+        // Restaura só a aba que estava ativa
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        const btnAtivo = document.querySelector('.tab-btn.active');
+        if (btnAtivo) {
+          const id = 'tab-' + btnAtivo.id.replace('btn','').toLowerCase()
+            .replace('dash','dashboard').replace('relat','relatorio').replace('diario','diario');
+          const el = document.getElementById(id);
+          if (el) el.classList.add('active');
+        }
+      }, 800);
+    }, 200);
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   FILTRO DE IMPACTANTES — v5 multiselect
+   ══════════════════════════════════════════════════════════════ */
+
+// ── Multi-select engine ────────────────────────────────────────
+function toggleMs(id) {
+  const dd = document.getElementById(id);
+  const btn = document.getElementById(id+'Btn');
+  const isOpen = dd.classList.contains('open');
+  // fecha todos
+  document.querySelectorAll('.ms-dropdown.open').forEach(el => el.classList.remove('open'));
+  document.querySelectorAll('.ms-btn.open').forEach(el => el.classList.remove('open'));
+  if (!isOpen) { dd.classList.add('open'); btn.classList.add('open'); }
+}
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.ms-wrap')) {
+    document.querySelectorAll('.ms-dropdown.open').forEach(el => el.classList.remove('open'));
+    document.querySelectorAll('.ms-btn.open').forEach(el => el.classList.remove('open'));
+  }
+});
+function msToggleAll(id, cb) {
+  document.querySelectorAll('.ms-cb-'+id).forEach(c => { c.checked = cb.checked; });
+  msSyncBtn(id);
+  if (id==='msTipo')  { populateEquipSelectMs(); return; } // cascata completa
+  if (id==='msEquip') { populateDescSelectMs(); }
+  renderFiltro();
+}
+function msChange(id) {
+  const cbs = [...document.querySelectorAll('.ms-cb-'+id)];
+  const allCk = cbs.every(c=>c.checked);
+  const allEl = document.getElementById(id+'All');
+  if (allEl) allEl.checked = allCk;
+  msSyncBtn(id);
+  if (id==='msTipo')  { populateEquipSelectMs(); return; } // cascata completa
+  if (id==='msEquip') { populateDescSelectMs(); }
+  renderFiltro();
+}
+function msSyncBtn(id) {
+  const cbs   = [...document.querySelectorAll('.ms-cb-'+id)];
+  const sel   = cbs.filter(c=>c.checked);
+  const btn   = document.getElementById(id+'Btn');
+  if (!btn) return;
+  if (sel.length===0||sel.length===cbs.length) { btn.textContent = 'Todos'; }
+  else if (sel.length<=3) { btn.textContent = sel.map(c=>c.value).join(', '); }
+  else { btn.textContent = sel.length+' selecionados'; }
+}
+function msGetSelected(id) {
+  const cbs = [...document.querySelectorAll('.ms-cb-'+id)];
+  const sel = cbs.filter(c=>c.checked).map(c=>c.value);
+  return sel.length===cbs.length ? null : sel; // null = todos
+}
+function msSetAll(id, checked) {
+  const allEl = document.getElementById(id+'All');
+  if (allEl) allEl.checked = checked;
+  document.querySelectorAll('.ms-cb-'+id).forEach(c=>{ c.checked=checked; });
+  msSyncBtn(id);
+}
+function msRebuildDynamic(id, values, selected) {
+  // Reconstrói os itens dinâmicos de um ms-dropdown (mantém .all-item)
+  const dd = document.getElementById(id);
+  if (!dd) return;
+  // Remove itens antigos (não all-item)
+  [...dd.querySelectorAll('.ms-item:not(.all-item)')].forEach(el=>el.remove());
+  values.forEach(v => {
+    const lbl = document.createElement('label');
+    lbl.className = 'ms-item';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.className = 'ms-cb-'+id;
+    cb.value = v;
+    cb.checked = selected ? selected.includes(v) : true;
+    cb.addEventListener('change', ()=>msChange(id));
+    lbl.appendChild(cb);
+    lbl.appendChild(document.createTextNode(' '+v));
+    dd.appendChild(lbl);
+  });
+  const allEl = document.getElementById(id+'All');
+  const cbs = [...document.querySelectorAll('.ms-cb-'+id)];
+  if (allEl) allEl.checked = cbs.every(c=>c.checked);
+  msSyncBtn(id);
+}
+
+// ── Acumula todos os eventos ───────────────────────────────────
+function getAllEventos() {
+  const eventos = [];
+  const SECOES = {brit:'Britagem', l1:'Moagem L1', l2:'Moagem L2', l3:'Moagem L3'};
+  Object.entries(SECOES).forEach(([key, nome]) => {
+    const rmot = R_MOT[key] || {};
+    Object.entries(rmot).forEach(([data, lista]) => {
+      (lista||[]).forEach(([motivo, horas]) => {
+        if (!motivo || horas <= 0) return;
+        const partes = motivo.split(' ∥ ');
+        const tipo  = (partes[0]||'').trim() || 'Outros';
+        const equip = (partes[1]||'').trim() || '—';
+        const desc  = (partes[2]||'').trim() || motivo;
+        eventos.push({ data, secao: key, secaoNome: nome, tipo, equip, desc, motivo, horas });
+      });
+    });
+  });
+  return eventos.sort((a,b) => a.data.localeCompare(b.data));
+}
+
+// ── Popular Equipamento — filtra pelos Tipos selecionados ─────
+function populateEquipSelectMs() {
+  if (!dadosCarregados()) return;
+  const tiposSel = msGetSelected('msTipo'); // null = todos
+  const secao    = document.getElementById('fiSecao').value;
+  const ini      = document.getElementById('fiIni').value;
+  const fim      = document.getElementById('fiFim').value;
+
+  let todos = getAllEventos();
+  if (ini)           todos = todos.filter(e => e.data >= ini);
+  if (fim)           todos = todos.filter(e => e.data <= fim);
+  if (secao !== 'todas') todos = todos.filter(e => e.secao === secao);
+  if (tiposSel)      todos = todos.filter(e => tiposSel.includes(e.tipo));
+
+  const equips = [...new Set(todos.map(e => e.equip).filter(e => e && e !== '—'))].sort();
+
+  // Reconstrói a lista — tudo marcado (sem preservar seleção anterior,
+  // pois o usuário acabou de mudar o filtro de tipo)
+  msRebuildDynamic('msEquip', equips, null);
+
+  // Propaga para Descrição e re-renderiza
+  populateDescSelectMs();
+}
+
+// ── Popular Descrição — filtra por Tipo + Equipamento selecionados ──
+function populateDescSelectMs() {
+  if (!dadosCarregados()) return;
+  const tiposSel  = msGetSelected('msTipo');
+  const equipsSel = msGetSelected('msEquip');
+  const secao     = document.getElementById('fiSecao').value;
+  const ini       = document.getElementById('fiIni').value;
+  const fim       = document.getElementById('fiFim').value;
+
+  let todos = getAllEventos();
+  if (ini)           todos = todos.filter(e => e.data >= ini);
+  if (fim)           todos = todos.filter(e => e.data <= fim);
+  if (secao !== 'todas') todos = todos.filter(e => e.secao === secao);
+  if (tiposSel)      todos = todos.filter(e => tiposSel.includes(e.tipo));
+  if (equipsSel)     todos = todos.filter(e => equipsSel.includes(e.equip));
+
+  const descs = [...new Set(todos.map(e => e.desc).filter(Boolean))].sort();
+
+  // Reconstrói lista — tudo marcado (cascata limpa)
+  msRebuildDynamic('msDesc', descs, null);
+
+  renderFiltro();
+}
+
+function initFiltro() {
+  if (!dadosCarregados()) return;
+  const allDates = [...new Set([
+    ...Object.keys(DADOS.brit_daily||{}),
+    ...Object.keys(DADOS.l1_daily||{}),
+    ...Object.keys(DADOS.l2_daily||{}),
+    ...Object.keys(DADOS.l3_daily||{})
+  ])].sort();
+  const ini = document.getElementById('fiIni');
+  const fim = document.getElementById('fiFim');
+  if (ini && !ini.value && allDates.length) { ini.value = allDates[0]; }
+  if (fim && !fim.value && allDates.length) { fim.value = allDates[allDates.length-1]; }
+  // Cascata completa: Tipo → Equip → Desc → renderFiltro
+  populateEquipSelectMs();
+}
+
+function resetFiltroImp() {
+  document.getElementById('fiIni').value   = '';
+  document.getElementById('fiFim').value   = '';
+  document.getElementById('fiSecao').value = 'todas';
+  msSetAll('msTipo', true);
+  msSetAll('msEquip', true);
+  msSetAll('msDesc', true);
+  initFiltro();
+}
+
+function renderFiltro() {
+  if (!dadosCarregados()) return;
+  const ini       = document.getElementById('fiIni').value;
+  const fim       = document.getElementById('fiFim').value;
+  const secao     = document.getElementById('fiSecao').value;
+  const tiposSel  = msGetSelected('msTipo');
+  const equipsSel = msGetSelected('msEquip');
+  const descsSel  = msGetSelected('msDesc');
+
+  let eventos = getAllEventos();
+  if (ini)       eventos = eventos.filter(e=>e.data>=ini);
+  if (fim)       eventos = eventos.filter(e=>e.data<=fim);
+  if (secao!=='todas') eventos = eventos.filter(e=>e.secao===secao);
+  if (tiposSel)  eventos = eventos.filter(e=>tiposSel.includes(e.tipo));
+  if (equipsSel) eventos = eventos.filter(e=>equipsSel.includes(e.equip));
+  if (descsSel)  eventos = eventos.filter(e=>descsSel.includes(e.desc));
+
+  const totalH = +eventos.reduce((s,e)=>s+e.horas,0).toFixed(1);
+  const nOcorr = eventos.length;
+
+  const dias_set = new Set(eventos.map(e=>e.data));
+  const secoes_set = secao==='todas' ? ['brit','l1','l2','l3'] : [secao];
+  let totalHP = 0;
+  dias_set.forEach(d => {
+    secoes_set.forEach(s => {
+      const dd = (DADOS[s+'_daily']||{})[d];
+      if (dd) totalHP += dd.prod;
+    });
+  });
+  const mtbf = nOcorr>0 ? +(totalHP/nOcorr).toFixed(1) : totalHP;
+  const mttr = nOcorr>0 ? +(totalH/nOcorr).toFixed(1) : 0;
+
+  const topMap = {};
+  eventos.forEach(e => {
+    const k = e.equip!=='—' ? e.equip+' — '+e.desc : e.desc;
+    topMap[k] = (topMap[k]||0) + e.horas;
+  });
+  const topList = Object.entries(topMap).sort((a,b)=>b[1]-a[1]);
+
+  document.getElementById('fiKpiTotal').textContent = fmtH(totalH);
+  document.getElementById('fiKpiN').textContent = nOcorr+' ocorr.';
+  document.getElementById('fiKpiMTBF').textContent = fmtH(mtbf);
+  document.getElementById('fiKpiMTTR').textContent = fmtH(mttr);
+  if (topList.length) {
+    const tDesc = topList[0][0];
+    document.getElementById('fiKpiTop').textContent = tDesc.length>30?tDesc.slice(0,30)+'…':tDesc;
+    document.getElementById('fiKpiTopH').textContent = fmtH(topList[0][1])+' parado';
+  } else {
+    document.getElementById('fiKpiTop').textContent = '—';
+    document.getElementById('fiKpiTopH').textContent = '';
+  }
+
+  document.getElementById('fiTabelaTitulo').textContent =
+    `📋 Eventos de Parada — ${nOcorr} registro${nOcorr!==1?'s':''}`;
+  document.getElementById('fiTabelaInfo').textContent =
+    ini&&fim ? `${ini.slice(8)+'/'+ini.slice(5,7)} a ${fim.slice(8)+'/'+fim.slice(5,7)}` : '';
+
+  // ── Gráfico barras top 10 ──
+  dc('fiBarChart');
+  const top10 = topList.slice(0,10);
+  if (top10.length) {
+    const COR_TIPO = {
+      'corretiva mec':'#ffc107','corretiva ele':'#f44336',
+      'preventiva':'#4a90d9','troca de comp':'#26a69a',
+      'operacional':'#ff7043','aguardando':'#78909c'
+    };
+    const getCorDesc = (desc) => {
+      const ev = eventos.find(e=>(e.equip!=='—'?e.equip+' — '+e.desc:e.desc)===desc);
+      if (!ev) return '#888';
+      const t = ev.tipo.toLowerCase();
+      for (const [k,c] of Object.entries(COR_TIPO)) { if(t.includes(k)) return c; }
+      return '#888';
+    };
+    // Quebra label em linhas de até 30 chars
+    function wrapLabelFi(str, maxW) {
+      const words = str.split(' ');
+      const lines = [];
+      let cur = '';
+      words.forEach(w => {
+        if ((cur+' '+w).trim().length <= maxW) { cur = (cur+' '+w).trim(); }
+        else { if (cur) lines.push(cur); cur = w; }
+      });
+      if (cur) lines.push(cur);
+      return lines;
+    }
+    const fullDescs = top10.map(([d]) => d);
+    const wrappedLabels = top10.map(([d]) => wrapLabelFi(d, 30));
+    CI['fiBarChart'] = new Chart(document.getElementById('fiBarChart'),{
+      type:'bar',
+      data:{
+        labels: wrappedLabels,
+        datasets:[{data:top10.map(([,h])=>h),
+          backgroundColor:top10.map(([d])=>getCorDesc(d)+'CC'),
+          borderWidth:0,borderRadius:3}]
+      },
+      options:{
+        indexAxis:'y', responsive:true, maintainAspectRatio:false,
+        plugins:{
+          legend:{display:false},
+          tooltip:{
+            backgroundColor:'#131620',
+            callbacks:{
+              title: ctx => fullDescs[ctx[0].dataIndex],
+              label: ctx => `  ${ctx.parsed.x}h`
+            }
+          }
+        },
+        scales:{
+          x:{ticks:{color:'#ccc',font:{size:9}}, grid:{color:'rgba(255,255,255,0.06)'}},
+          y:{ticks:{color:'#ddd',font:{size:9},autoSkip:false}, grid:{display:false}}
+        }
+      }
+    });
+  }
+
+  // ── Gráfico pizza por tipo ──
+  dc('fiPieChart');
+  const tipoMap = {};
+  eventos.forEach(e=>{ tipoMap[e.tipo]=(tipoMap[e.tipo]||0)+e.horas; });
+  const tipoList = Object.entries(tipoMap).sort((a,b)=>b[1]-a[1]);
+  if (tipoList.length) {
+    const PIE_CORES=['#ffc107','#f44336','#4a90d9','#26a69a','#ff7043','#78909c','#9b59b6','#888'];
+    CI['fiPieChart'] = new Chart(document.getElementById('fiPieChart'),{
+      type:'doughnut',
+      data:{
+        labels:tipoList.map(([t])=>t),
+        datasets:[{data:tipoList.map(([,h])=>h),
+          backgroundColor:tipoList.map((_,i)=>PIE_CORES[i%PIE_CORES.length]),
+          borderWidth:1,borderColor:'#1a2230'}]
+      },
+      options:{responsive:true,maintainAspectRatio:false,cutout:'40%',
+        plugins:{
+          legend:{display:true,position:'right',
+            labels:{color:'#ccc',font:{size:9},boxWidth:12,padding:8}},
+          tooltip:{backgroundColor:'#131620',
+            callbacks:{label:c=>`${c.label}: ${c.parsed}h`}}
+        }
+      }
+    });
+  }
+
+  // ── Tabela detalhada ──
+  const SECAO_COR={brit:'#e55454',l1:'#5a739a',l2:'#9b59b6',l3:'#4caf50'};
+  const tbody = document.getElementById('fiTbody');
+  tbody.innerHTML='';
+  if (!eventos.length) {
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#666;padding:20px">Nenhum evento no período selecionado.</td></tr>';
+    return;
+  }
+  eventos.forEach(ev=>{
+    const ti = tipoMotivo(ev.motivo);
+    const cor = SECAO_COR[ev.secao]||'#888';
+    const tr = document.createElement('tr');
+    const dFmt = ev.data.slice(8)+'/'+ev.data.slice(5,7);
+    tr.innerHTML=`
+      <td style="color:#aaa;font-size:10px">${dFmt}</td>
+      <td><span style="font-size:9px;padding:2px 7px;border-radius:10px;background:${cor}22;color:${cor};font-weight:700">${ev.secaoNome}</span></td>
+      <td><span style="font-size:9px;padding:2px 7px;border-radius:10px;background:${ti.cor}22;color:${ti.cor};font-weight:700">${ev.tipo}</span></td>
+      <td style="font-size:10px;color:#e8a020;font-weight:600">${ev.equip}</td>
+      <td style="font-size:10px;max-width:300px">${ev.desc}</td>
+      <td style="text-align:center;font-weight:700;color:#e8a020">${fmtH(ev.horas)}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+</script>
+
+<!-- FILTRO DE IMPACTANTES -->
+<!-- PRODUÇÃO DA PLANTA -->
+<div class="tab-content" id="tab-producao">
+  <div class="filtros-bar" style="align-items:flex-end;gap:12px;margin-bottom:14px">
+    <div class="filtro-group"><label>Data início</label><input type="date" id="ppIni" onchange="renderProducao()"></div>
+    <div class="filtro-group"><label>Data fim</label><input type="date" id="ppFim" onchange="renderProducao()"></div>
+    <button class="filtro-reset" onclick="resetProducao()">↺ Limpar</button>
+  </div>
+
+  <!-- KPIs -->
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px">
+    <div class="card" style="border-top:3px solid #B09D7C;padding:14px">
+      <div style="font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.5px">Produção Total</div>
+      <div id="ppKpiTotal" style="font-size:24px;font-weight:800;color:#B09D7C;margin-top:4px">—</div>
+      <div style="font-size:10px;color:#888">balança no período</div>
+    </div>
+    <div class="card" style="border-top:3px solid #e8a020;padding:14px">
+      <div style="font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.5px">⚙ Britador</div>
+      <div id="ppKpiBrit" style="font-size:24px;font-weight:800;color:#e8a020;margin-top:4px">—</div>
+      <div style="font-size:10px;color:#888">total britado</div>
+    </div>
+    <div class="card" style="border-top:3px solid #4caf50;padding:14px">
+      <div style="font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.5px">∑ Moagem (L1+L2+L3)</div>
+      <div id="ppKpiMoagem" style="font-size:24px;font-weight:800;color:#4caf50;margin-top:4px">—</div>
+      <div style="font-size:10px;color:#888">total moído</div>
+    </div>
+    <div class="card" style="border-top:3px solid #5A739A;padding:14px">
+      <div style="font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.5px">Média Diária</div>
+      <div id="ppKpiMedia" style="font-size:24px;font-weight:800;color:#5A739A;margin-top:4px">—</div>
+      <div style="font-size:10px;color:#888">moagem / dia ativo</div>
+    </div>
+    <div class="card" style="border-top:3px solid #9b59b6;padding:14px">
+      <div style="font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.5px">Melhor Dia</div>
+      <div id="ppKpiMelhor" style="font-size:24px;font-weight:800;color:#9b59b6;margin-top:4px">—</div>
+      <div id="ppKpiMelhorData" style="font-size:10px;color:#888">—</div>
+    </div>
+  </div>
+
+  <!-- Gráficos -->
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:16px">
+    <div class="card" style="padding:14px">
+      <div class="card-title" style="margin-bottom:10px">📊 Produção Diária por Linha (t)</div>
+      <div style="height:340px"><canvas id="ppBarChart"></canvas></div>
+    </div>
+    <div class="card" style="padding:14px">
+      <div class="card-title" style="margin-bottom:10px">🥧 Distribuição por Linha</div>
+      <div style="height:340px"><canvas id="ppPieChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card" style="padding:14px;margin-bottom:16px">
+    <div class="card-title" style="margin-bottom:10px">📈 Evolução da Produção Total (t)</div>
+    <div style="height:260px"><canvas id="ppLineChart"></canvas></div>
+  </div>
+
+  <!-- Material por linha -->
+  <div class="card" style="padding:14px;margin-bottom:16px">
+    <div class="card-title" style="margin-bottom:10px">⛏ Conchadas por Tipo de Material</div>
+    <div style="height:260px"><canvas id="ppMatChart"></canvas></div>
+  </div>
+
+  <!-- Tabela -->
+  <div class="card" style="padding:0;overflow:hidden">
+    <div style="padding:12px 14px;background:#1a2230;border-bottom:1px solid #2a3545;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-weight:700;color:#B09D7C" id="ppTabTitulo">📋 Produção Diária</span>
+      <span style="font-size:11px;color:#888" id="ppTabInfo"></span>
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead>
+          <tr style="background:#141c28;color:#B09D7C;text-align:right">
+            <th style="padding:8px 12px;text-align:left">Data</th>
+            <th style="padding:8px 12px;text-align:right">⚙ Britador (t)</th>
+            <th style="padding:8px 12px;text-align:right">🟢 Linha 1 (t)</th>
+            <th style="padding:8px 12px;text-align:right">🟠 Linha 2 (t)</th>
+            <th style="padding:8px 12px;text-align:right">🟣 Linha 3 (t)</th>
+            <th style="padding:8px 12px;text-align:right">∑ Moagem (t)</th>
+          </tr>
+        </thead>
+        <tbody id="ppTbody"></tbody>
+        <tfoot id="ppTfoot"></tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="tab-content" id="tab-filtro">
+  <div class="filtros-bar" style="flex-wrap:wrap;gap:10px;align-items:flex-end">
+    <div class="filtro-group"><label>Data início</label><input type="date" id="fiIni" onchange="populateEquipSelectMs()"></div>
+    <div class="filtro-group"><label>Data fim</label><input type="date" id="fiFim" onchange="populateEquipSelectMs()"></div>
+    <div class="filtro-group"><label>Seção</label>
+      <select id="fiSecao" onchange="populateEquipSelectMs()">
+        <option value="todas">Todas</option>
+        <option value="brit">Britagem</option>
+        <option value="l1">Moagem L1</option>
+        <option value="l2">Moagem L2</option>
+        <option value="l3">Moagem L3</option>
+      </select>
+    </div>
+    <!-- Multi-select: Tipo de Parada -->
+    <div class="filtro-group">
+      <label>Tipo de Parada</label>
+      <div class="ms-wrap" id="msTipoWrap">
+        <button class="ms-btn" id="msTipoBtn" onclick="toggleMs('msTipo')">Todos</button>
+        <div class="ms-dropdown" id="msTipo">
+          <label class="ms-item all-item"><input type="checkbox" id="msTipoAll" checked onchange="msToggleAll('msTipo',this)"> Todos</label>
+          <label class="ms-item"><input type="checkbox" class="ms-cb-msTipo" value="Preventiva" checked onchange="msChange('msTipo')"> Preventiva</label>
+          <label class="ms-item"><input type="checkbox" class="ms-cb-msTipo" value="Corretiva elétrica" checked onchange="msChange('msTipo')"> Corretiva elétrica</label>
+          <label class="ms-item"><input type="checkbox" class="ms-cb-msTipo" value="Corretiva mecânica" checked onchange="msChange('msTipo')"> Corretiva mecânica</label>
+          <label class="ms-item"><input type="checkbox" class="ms-cb-msTipo" value="Troca de componente de desgaste" checked onchange="msChange('msTipo')"> Troca de componente de desgaste</label>
+          <label class="ms-item"><input type="checkbox" class="ms-cb-msTipo" value="Operacional" checked onchange="msChange('msTipo')"> Operacional</label>
+        </div>
+      </div>
+    </div>
+    <!-- Multi-select: Equipamento -->
+    <div class="filtro-group">
+      <label>Equipamento</label>
+      <div class="ms-wrap" id="msEquipWrap">
+        <button class="ms-btn" id="msEquipBtn" onclick="toggleMs('msEquip')">Todos</button>
+        <div class="ms-dropdown" id="msEquip">
+          <label class="ms-item all-item"><input type="checkbox" id="msEquipAll" checked onchange="msToggleAll('msEquip',this)"> Todos</label>
+        </div>
+      </div>
+    </div>
+    <!-- Multi-select: Descrição -->
+    <div class="filtro-group">
+      <label>Descrição / Apontamento</label>
+      <div class="ms-wrap" id="msDescWrap">
+        <button class="ms-btn" id="msDescBtn" onclick="toggleMs('msDesc')">Todos</button>
+        <div class="ms-dropdown" id="msDesc">
+          <label class="ms-item all-item"><input type="checkbox" id="msDescAll" checked onchange="msToggleAll('msDesc',this)"> Todos</label>
+        </div>
+      </div>
+    </div>
+    <button class="filtro-reset" onclick="resetFiltroImp()">↺ Limpar</button>
+  </div>
+
+  <!-- KPIs do filtro -->
+  <div class="kpi-row" style="margin-bottom:8px">
+    <div class="kpi-card" style="--cor:#f44336"><div class="kpi-label">Total Paradas</div><div class="kpi-value" id="fiKpiTotal" style="color:#f44336">—</div><div class="kpi-sub">horas no período</div></div>
+    <div class="kpi-card" style="--cor:#ffc107"><div class="kpi-label">Nº Ocorrências</div><div class="kpi-value" id="fiKpiN" style="color:#ffc107">—</div><div class="kpi-sub">eventos registrados</div></div>
+    <div class="kpi-card" style="--cor:#4a90d9"><div class="kpi-label">MTBF</div><div class="kpi-value" id="fiKpiMTBF" style="color:#4a90d9">—</div><div class="kpi-sub">Tempo médio entre falhas</div></div>
+    <div class="kpi-card" style="--cor:#9b59b6"><div class="kpi-label">MTTR</div><div class="kpi-value" id="fiKpiMTTR" style="color:#9b59b6">—</div><div class="kpi-sub">Tempo médio de reparo</div></div>
+    <div class="kpi-card" style="--cor:#4caf50"><div class="kpi-label">Maior Impactante</div><div class="kpi-value" id="fiKpiTop" style="color:#4caf50;font-size:13px">—</div><div class="kpi-sub" id="fiKpiTopH"></div></div>
+  </div>
+
+  <!-- Gráfico de barras dos impactantes filtrados -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <div class="card" style="padding:14px">
+      <div class="card-title" style="margin-bottom:10px">⏱ Tempo por Impactante (h)</div>
+      <div style="height:340px"><canvas id="fiBarChart"></canvas></div>
+    </div>
+    <div class="card" style="padding:14px">
+      <div class="card-title" style="margin-bottom:10px">📊 Distribuição por Tipo de Parada</div>
+      <div style="height:340px"><canvas id="fiPieChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Tabela detalhada dos eventos -->
+  <div class="card" style="padding:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="card-title" id="fiTabelaTitulo">📋 Eventos de Parada</div>
+      <div style="font-size:10px;color:#666" id="fiTabelaInfo"></div>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="imp-table" style="width:100%">
+        <thead>
+          <tr style="background:#0d1117">
+            <th style="width:90px">Data</th>
+            <th style="width:70px">Seção</th>
+            <th>Tipo de Parada</th>
+            <th>Equipamento</th>
+            <th>Descrição</th>
+            <th style="width:80px;text-align:center">T. Parada</th>
+          </tr>
+        </thead>
+        <tbody id="fiTbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</body>
+</html>
