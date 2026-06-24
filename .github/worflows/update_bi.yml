@@ -1,16 +1,9 @@
-# .github/workflows/update_bi.yml
-#
-# Roda automaticamente quando o Power Automate commita
-# a planilha.xlsx atualizada no repositório.
-# Não precisa de Azure nem de credenciais do SharePoint.
-
 name: Atualizar BI
 
 on:
-  push:
-    paths:
-      - 'planilha.xlsx'   # dispara SOMENTE quando a planilha mudar
-  workflow_dispatch:       # permite rodar manualmente pelo GitHub
+  repository_dispatch:
+    types: [planilha-atualizada]
+  workflow_dispatch:
 
 jobs:
   update:
@@ -22,6 +15,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Salvar planilha do payload
+        env:
+          PLANILHA_B64: ${{ github.event.client_payload.content }}
+        run: |
+          echo "$PLANILHA_B64" | base64 -d > planilha.xlsx
+          echo "✓ planilha.xlsx salva ($(du -sh planilha.xlsx | cut -f1))"
+
       - name: Configurar Python
         uses: actions/setup-python@v5
         with:
@@ -30,19 +30,17 @@ jobs:
       - name: Instalar dependências
         run: pip install openpyxl
 
-      - name: Processar planilha e atualizar BI
+      - name: Processar e atualizar BI
         run: python scripts/update_bi.py
 
-      - name: Publicar index.html atualizado
+      - name: Publicar index.html
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name  "github-actions[bot]"
           git add index.html
           if git diff --staged --quiet; then
-            echo "Sem mudanças nos dados."
+            echo "Sem mudanças."
           else
-            TIMESTAMP=$(date -u '+%d/%m/%Y %H:%M UTC')
-            git commit -m "🔄 BI atualizado — ${TIMESTAMP}"
+            git commit -m "🔄 BI atualizado — $(date -u '+%d/%m/%Y %H:%M UTC')"
             git push
-            echo "✅ BI publicado."
           fi
