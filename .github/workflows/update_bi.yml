@@ -1,3 +1,4 @@
+
 name: Atualizar BI
 
 on:
@@ -36,11 +37,11 @@ jobs:
 
       - name: Processar e atualizar BI
         env:
-          SP_USERNAME: ${{ secrets.SP_USERNAME }}
-          SP_PASSWORD: ${{ secrets.SP_PASSWORD }}
-          SP_SITE_URL: ${{ secrets.SP_SITE_URL }}
+          SP_USERNAME:  ${{ secrets.SP_USERNAME }}
+          SP_PASSWORD:  ${{ secrets.SP_PASSWORD }}
+          SP_SITE_URL:  ${{ secrets.SP_SITE_URL }}
           SP_FILE_PATH: ${{ secrets.SP_FILE_PATH }}
-          GDRIVE_URL: ${{ secrets.GDRIVE_URL }}
+          DROPBOX_URL:  ${{ secrets.DROPBOX_URL }}
         run: python scripts/update_bi_tudo.py
 
       - name: Publicar index.html
