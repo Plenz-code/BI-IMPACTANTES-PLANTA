@@ -52,4 +52,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "Sem mudancas."
           else
-            git commit -m "BI atualizado - $(date -u '+%d/%m/%Y %H:%M UTC')"
+            TIMESTAMP=$(date -u '+%d/%m/%Y %H:%M UTC')
+            git commit -m "BI atualizado - ${TIMESTAMP}"
+            git push
+          fi
