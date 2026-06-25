@@ -10,16 +10,20 @@ import os, sys, json, re, warnings, datetime
 warnings.filterwarnings('ignore')
 
 # ── 1. BAIXAR DO SHAREPOINT ────────────────────────────────────────────────────
-USERNAME  = os.environ.get('SP_USERNAME', '')
-PASSWORD  = os.environ.get('SP_PASSWORD', '')
-SITE_URL  = os.environ.get('SP_SITE_URL', '')
-FILE_PATH = os.environ.get('SP_FILE_PATH', '')
 XLSX_FILE = 'planilha.xlsx'
 HTML_FILE = 'index.html'
 
-# Tenta baixar do SharePoint — usa arquivo TEMPORARIO para nao corromper o original
+# ── Fonte 1: SharePoint (pode falhar por MFA) ─────────────────────────────────
+GDRIVE_URL = os.environ.get('GDRIVE_URL','')
+USERNAME  = os.environ.get('SP_USERNAME','')
+PASSWORD  = os.environ.get('SP_PASSWORD','')
+SITE_URL  = os.environ.get('SP_SITE_URL','')
+FILE_PATH = os.environ.get('SP_FILE_PATH','')
+
+baixou = False
+
 if USERNAME and PASSWORD and SITE_URL and FILE_PATH:
-    print("Tentando baixar do SharePoint...")
+    print("Tentando SharePoint...")
     TEMP_FILE = 'planilha_sp_temp.xlsx'
     try:
         from office365.runtime.auth.user_credential import UserCredential
@@ -29,17 +33,46 @@ if USERNAME and PASSWORD and SITE_URL and FILE_PATH:
             ctx.web.get_file_by_server_relative_url(FILE_PATH).download(f).execute_query()
         import shutil
         shutil.move(TEMP_FILE, XLSX_FILE)
-        print(f"Planilha baixada do SharePoint ({os.path.getsize(XLSX_FILE)//1024} KB)")
+        print(f"✓ Baixado do SharePoint ({os.path.getsize(XLSX_FILE)//1024} KB)")
+        baixou = True
     except Exception as e:
         if os.path.exists(TEMP_FILE):
             os.remove(TEMP_FILE)
-        print(f"SharePoint indisponivel: {e}")
-        print("Usando planilha.xlsx existente no repositorio")
-else:
-    print("Usando planilha.xlsx do repositorio")
+        print(f"SharePoint bloqueado (MFA): {str(e)[:80]}")
 
-if not os.path.exists(XLSX_FILE):
-    print("planilha.xlsx nao encontrada — abortando")
+# ── Fonte 2: Google Drive (link publico) ──────────────────────────────────────
+if not baixou and GDRIVE_URL:
+    print("Baixando do Google Drive...")
+    try:
+        import urllib.request
+        req = urllib.request.Request(GDRIVE_URL, headers={'User-Agent':'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = resp.read()
+        if len(data) < 10000:
+            raise Exception(f"Arquivo muito pequeno ({len(data)} bytes) — link pode nao ser publico")
+        with open(XLSX_FILE, 'wb') as f:
+            f.write(data)
+        print(f"✓ Baixado do Google Drive ({len(data)//1024} KB)")
+        baixou = True
+    except Exception as e:
+        print(f"Google Drive falhou: {e}")
+
+# ── Fonte 3: planilha.xlsx do repositorio (ultimo recurso) ───────────────────
+if not baixou:
+    if os.path.exists(XLSX_FILE):
+        print("Usando planilha.xlsx existente no repositorio")
+    else:
+        print("Nenhuma fonte disponivel — abortando")
+        sys.exit(1)
+
+# ── Valida o arquivo ──────────────────────────────────────────────────────────
+import zipfile
+try:
+    with zipfile.ZipFile(XLSX_FILE, 'r') as z:
+        z.testzip()
+    print(f"✓ planilha.xlsx valida ({os.path.getsize(XLSX_FILE)//1024} KB)")
+except Exception as e:
+    print(f"Arquivo invalido: {e}")
     sys.exit(1)
 
 # ── 2. PROCESSAR ───────────────────────────────────────────────────────────────
