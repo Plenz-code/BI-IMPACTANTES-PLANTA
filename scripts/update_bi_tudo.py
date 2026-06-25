@@ -1,72 +1,44 @@
 """
 update_bi_tudo.py
-Faz TUDO em um unico script:
-  1. Baixa a planilha direto do SharePoint
-  2. Processa os dados
-  3. Atualiza o index.html com auto-inicializacao
+1. Baixa planilha do Dropbox (link publico)
+2. Processa os dados
+3. Atualiza o index.html com auto-inicializacao
 """
 
-import os, sys, json, re, warnings, datetime
+import os, sys, json, re, warnings, datetime, zipfile, urllib.request
 warnings.filterwarnings('ignore')
+from openpyxl import load_workbook
 
-# ── 1. BAIXAR DO SHAREPOINT ────────────────────────────────────────────────────
-XLSX_FILE = 'planilha.xlsx'
-HTML_FILE = 'index.html'
+XLSX_FILE   = 'planilha.xlsx'
+HTML_FILE   = 'index.html'
+DROPBOX_URL = os.environ.get('DROPBOX_URL', '')
+ABA_MAP     = {'Britador':'brit','Linha 1':'l1','Linha 2':'l2','Linha 3':'l3'}
 
-# ── Fonte 1: SharePoint (pode falhar por MFA) ─────────────────────────────────
-GDRIVE_URL = os.environ.get('GDRIVE_URL','')
-USERNAME  = os.environ.get('SP_USERNAME','')
-PASSWORD  = os.environ.get('SP_PASSWORD','')
-SITE_URL  = os.environ.get('SP_SITE_URL','')
-FILE_PATH = os.environ.get('SP_FILE_PATH','')
-
-baixou = False
-
-if USERNAME and PASSWORD and SITE_URL and FILE_PATH:
-    print("Tentando SharePoint...")
-    TEMP_FILE = 'planilha_sp_temp.xlsx'
+# ── 1. BAIXAR DO DROPBOX ──────────────────────────────────────────────────────
+if DROPBOX_URL:
+    print("Baixando do Dropbox...")
     try:
-        from office365.runtime.auth.user_credential import UserCredential
-        from office365.sharepoint.client_context import ClientContext
-        ctx = ClientContext(SITE_URL).with_credentials(UserCredential(USERNAME, PASSWORD))
-        with open(TEMP_FILE, "wb") as f:
-            ctx.web.get_file_by_server_relative_url(FILE_PATH).download(f).execute_query()
-        import shutil
-        shutil.move(TEMP_FILE, XLSX_FILE)
-        print(f"✓ Baixado do SharePoint ({os.path.getsize(XLSX_FILE)//1024} KB)")
-        baixou = True
-    except Exception as e:
-        if os.path.exists(TEMP_FILE):
-            os.remove(TEMP_FILE)
-        print(f"SharePoint bloqueado (MFA): {str(e)[:80]}")
-
-# ── Fonte 2: Google Drive (link publico) ──────────────────────────────────────
-if not baixou and GDRIVE_URL:
-    print("Baixando do Google Drive...")
-    try:
-        import urllib.request
-        req = urllib.request.Request(GDRIVE_URL, headers={'User-Agent':'Mozilla/5.0'})
+        req = urllib.request.Request(DROPBOX_URL, headers={'User-Agent':'Mozilla/5.0'})
         with urllib.request.urlopen(req, timeout=60) as resp:
             data = resp.read()
         if len(data) < 10000:
-            raise Exception(f"Arquivo muito pequeno ({len(data)} bytes) — link pode nao ser publico")
+            raise Exception(f"Arquivo muito pequeno ({len(data)} bytes)")
         with open(XLSX_FILE, 'wb') as f:
             f.write(data)
-        print(f"✓ Baixado do Google Drive ({len(data)//1024} KB)")
-        baixou = True
+        print(f"✓ Baixado do Dropbox ({len(data)//1024} KB)")
     except Exception as e:
-        print(f"Google Drive falhou: {e}")
-
-# ── Fonte 3: planilha.xlsx do repositorio (ultimo recurso) ───────────────────
-if not baixou:
-    if os.path.exists(XLSX_FILE):
+        print(f"Dropbox falhou: {e}")
+        if not os.path.exists(XLSX_FILE):
+            print("Nenhum arquivo disponivel — abortando")
+            sys.exit(1)
         print("Usando planilha.xlsx existente no repositorio")
-    else:
-        print("Nenhuma fonte disponivel — abortando")
+else:
+    print("DROPBOX_URL nao configurado — usando planilha.xlsx do repositorio")
+    if not os.path.exists(XLSX_FILE):
+        print("planilha.xlsx nao encontrada — abortando")
         sys.exit(1)
 
 # ── Valida o arquivo ──────────────────────────────────────────────────────────
-import zipfile
 try:
     with zipfile.ZipFile(XLSX_FILE, 'r') as z:
         z.testzip()
@@ -75,11 +47,7 @@ except Exception as e:
     print(f"Arquivo invalido: {e}")
     sys.exit(1)
 
-# ── 2. PROCESSAR ───────────────────────────────────────────────────────────────
-from openpyxl import load_workbook
-
-ABA_MAP = {'Britador':'brit','Linha 1':'l1','Linha 2':'l2','Linha 3':'l3'}
-
+# ── 2. PROCESSAR ─────────────────────────────────────────────────────────────
 def fmt_date(v):
     if isinstance(v,(datetime.datetime,datetime.date)):
         d=v.date() if isinstance(v,datetime.datetime) else v
@@ -98,20 +66,8 @@ def to_mins(v):
 
 def clean(v): return str(v).replace('\xa0',' ').strip() if v else ''
 
-# Valida o arquivo antes de abrir
-import zipfile
-try:
-    with zipfile.ZipFile(XLSX_FILE, 'r') as z:
-        z.testzip()
-except Exception as e:
-    print(f"Arquivo {XLSX_FILE} invalido: {e}")
-    print("O arquivo pode ter sido corrompido pelo Git.")
-    print("Solucao: certifique-se que .gitattributes esta correto e reenvie o arquivo.")
-    sys.exit(1)
-
 wb = load_workbook(XLSX_FILE, data_only=True)
-size = os.path.getsize(XLSX_FILE)
-print(f"Planilha carregada: {XLSX_FILE} ({size//1024} KB)")
+print(f"Planilha carregada: {XLSX_FILE}")
 
 _eventos={k:[] for k in ABA_MAP.values()}
 _has={k:{} for k in ABA_MAP.values()}
@@ -182,14 +138,13 @@ for key in ABA_MAP.values():
     daily=build_daily(_parada[key],_has[key])
     mots=build_mots(_eventos[key])
     results[key]={'mots':mots,'rkpi':build_rkpi(daily)}
-    n=sum(len(v) for v in mots.values())
-    print(f"  {key}: {len(daily)} dias, {n} ocorrencias")
+    print(f"  {key}: {len(daily)} dias, {sum(len(v) for v in mots.values())} ocorrencias")
 
 todas_datas=sorted(set(d for k in balanca for d in balanca[k]))
 resumo=[{'data':dt,'dia':int(dt[8:10]),'brit':balanca['brit'].get(dt,0),'l1':balanca['l1'].get(dt,0),'l2':balanca['l2'].get(dt,0),'l3':balanca['l3'].get(dt,0),'total':balanca['l1'].get(dt,0)+balanca['l2'].get(dt,0)+balanca['l3'].get(dt,0)} for dt in todas_datas]
 prod_planta={'resumo':resumo,'prod_linha':prod_linha,'material_tot':material_tot}
 
-# ── 3. ATUALIZAR HTML ──────────────────────────────────────────────────────────
+# ── 3. ATUALIZAR HTML ─────────────────────────────────────────────────────────
 print(f"Atualizando {HTML_FILE}...")
 with open(HTML_FILE,encoding='utf-8') as f: html=f.read()
 
@@ -221,4 +176,4 @@ html=re.sub(r'<!-- AUTO_INIT_START -->[\s\S]*?<!-- AUTO_INIT_END -->','',html)
 html=html.replace('</body>',AUTO_INIT+'\n</body>',1)
 
 with open(HTML_FILE,'w',encoding='utf-8') as f: f.write(html)
-print(f"index.html atualizado com sucesso!")
+print("✓ index.html atualizado!")
