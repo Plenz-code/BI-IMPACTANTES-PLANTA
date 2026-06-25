@@ -17,27 +17,30 @@ FILE_PATH = os.environ.get('SP_FILE_PATH', '')
 XLSX_FILE = 'planilha.xlsx'
 HTML_FILE = 'index.html'
 
+# Tenta baixar do SharePoint — usa arquivo TEMPORARIO para nao corromper o original
 if USERNAME and PASSWORD and SITE_URL and FILE_PATH:
-    print("Conectando ao SharePoint...")
+    print("Tentando baixar do SharePoint...")
+    TEMP_FILE = 'planilha_sp_temp.xlsx'
     try:
         from office365.runtime.auth.user_credential import UserCredential
         from office365.sharepoint.client_context import ClientContext
         ctx = ClientContext(SITE_URL).with_credentials(UserCredential(USERNAME, PASSWORD))
-        with open(XLSX_FILE, "wb") as f:
+        with open(TEMP_FILE, "wb") as f:
             ctx.web.get_file_by_server_relative_url(FILE_PATH).download(f).execute_query()
-        size = os.path.getsize(XLSX_FILE)
-        print(f"Planilha baixada do SharePoint ({size // 1024} KB)")
+        import shutil
+        shutil.move(TEMP_FILE, XLSX_FILE)
+        print(f"Planilha baixada do SharePoint ({os.path.getsize(XLSX_FILE)//1024} KB)")
     except Exception as e:
-        print(f"Erro ao baixar do SharePoint: {e}")
-        if not os.path.exists(XLSX_FILE):
-            print("planilha.xlsx nao encontrada — abortando")
-            sys.exit(1)
+        if os.path.exists(TEMP_FILE):
+            os.remove(TEMP_FILE)
+        print(f"SharePoint indisponivel: {e}")
         print("Usando planilha.xlsx existente no repositorio")
 else:
-    print("Secrets SP_ nao configurados — usando planilha.xlsx do repositorio")
-    if not os.path.exists(XLSX_FILE):
-        print("planilha.xlsx nao encontrada — abortando")
-        sys.exit(1)
+    print("Usando planilha.xlsx do repositorio")
+
+if not os.path.exists(XLSX_FILE):
+    print("planilha.xlsx nao encontrada — abortando")
+    sys.exit(1)
 
 # ── 2. PROCESSAR ───────────────────────────────────────────────────────────────
 from openpyxl import load_workbook
