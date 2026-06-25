@@ -62,8 +62,20 @@ def to_mins(v):
 
 def clean(v): return str(v).replace('\xa0',' ').strip() if v else ''
 
+# Valida o arquivo antes de abrir
+import zipfile
+try:
+    with zipfile.ZipFile(XLSX_FILE, 'r') as z:
+        z.testzip()
+except Exception as e:
+    print(f"Arquivo {XLSX_FILE} invalido: {e}")
+    print("O arquivo pode ter sido corrompido pelo Git.")
+    print("Solucao: certifique-se que .gitattributes esta correto e reenvie o arquivo.")
+    sys.exit(1)
+
 wb = load_workbook(XLSX_FILE, data_only=True)
-print(f"Planilha carregada: {XLSX_FILE}")
+size = os.path.getsize(XLSX_FILE)
+print(f"Planilha carregada: {XLSX_FILE} ({size//1024} KB)")
 
 _eventos={k:[] for k in ABA_MAP.values()}
 _has={k:{} for k in ABA_MAP.values()}
