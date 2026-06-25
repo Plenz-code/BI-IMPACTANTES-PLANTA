@@ -40,6 +40,7 @@ jobs:
           SP_PASSWORD: ${{ secrets.SP_PASSWORD }}
           SP_SITE_URL: ${{ secrets.SP_SITE_URL }}
           SP_FILE_PATH: ${{ secrets.SP_FILE_PATH }}
+          GDRIVE_URL: ${{ secrets.GDRIVE_URL }}
         run: python scripts/update_bi_tudo.py
 
       - name: Publicar index.html
