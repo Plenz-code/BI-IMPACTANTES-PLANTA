@@ -1,4 +1,3 @@
-
 name: Atualizar BI
 
 on:
@@ -27,32 +26,22 @@ jobs:
           python-version: '3.11'
 
       - name: Instalar dependencias
-        run: pip install Office365-REST-Python-Client openpyxl
+        run: pip install openpyxl
 
-      - name: Baixar planilha via API GitHub
+      - name: Baixar planilha do Dropbox
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-        run: python scripts/baixar_planilha.py
-
-      - name: Processar e atualizar BI
-        env:
-          SP_USERNAME:  ${{ secrets.SP_USERNAME }}
-          SP_PASSWORD:  ${{ secrets.SP_PASSWORD }}
-          SP_SITE_URL:  ${{ secrets.SP_SITE_URL }}
-          SP_FILE_PATH: ${{ secrets.SP_FILE_PATH }}
-          DROPBOX_URL:  ${{ secrets.DROPBOX_URL }}
+          DROPBOX_URL: ${{ secrets.DROPBOX_URL }}
         run: python scripts/update_bi_tudo.py
 
-      - name: Publicar index.html
+      - name: Publicar planilha.xlsx
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
-          git add index.html
+          git add planilha.xlsx
           if git diff --staged --quiet; then
-            echo "Sem mudancas."
+            echo "Planilha sem mudanças — nada a commitar."
           else
             TIMESTAMP=$(date -u '+%d/%m/%Y %H:%M UTC')
-            git commit -m "BI atualizado - ${TIMESTAMP}"
+            git commit -m "planilha atualizada - ${TIMESTAMP}"
             git push
           fi
