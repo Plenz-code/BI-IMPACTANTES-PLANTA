@@ -1477,10 +1477,14 @@ function handleFile(f) {
       });
 
       function buildDaily(parada_map, has_data_map) {
+        // Armazena apenas as horas de parada brutas.
+        // A base (24h para dias passados, base dinâmica para hoje) é calculada no render,
+        // depois que ULTIMO_TS_DATE já está disponível.
         const out = {};
         Object.entries(parada_map).sort().forEach(([d, pm]) => {
           if (!has_data_map[d]) return;
-          const hs = +Math.min(24, pm/60).toFixed(1);
+          const hs = +(pm/60).toFixed(1);
+          // prod aqui é placeholder de 24h — render vai recalcular para hoje
           out[d] = { prod: +Math.max(0, 24-hs).toFixed(1), parada: hs };
         });
         return out;
@@ -1558,9 +1562,11 @@ function handleFile(f) {
       const k3 = calcKPI(l3_daily,   l3_mots);
       const kb = calcKPI(brit_daily,  brit_mots);
 
-      // Reconstrói R_KPI dinamicamente
+      // Reconstrói R_KPI dinamicamente — usa base dinâmica para o dia atual
       function buildRKPI(daily) {
         const out = {};
+        const _agora = new Date();
+        const _hojeStr = _agora.getFullYear()+'-'+String(_agora.getMonth()+1).padStart(2,'0')+'-'+String(_agora.getDate()).padStart(2,'0');
         Object.entries(daily).forEach(([d,v]) => {
           const tb = v.prod + v.parada;
           out[d] = {
@@ -1635,162 +1641,95 @@ function handleFile(f) {
       // ═══════════════════════════════════════════════════════════
       (function rebuildProdPlanta() {
         const SEC = {Britador:'brit','Linha 1':'l1','Linha 2':'l2','Linha 3':'l3'};
-        const balanca     = {brit:{}, l1:{}, l2:{}, l3:{}};
-        // balanca_t1: balança acumulada apenas do 1º turno (diurno) — usado quando 2º turno ainda não fechou
-        const balanca_t1  = {brit:{}, l1:{}, l2:{}, l3:{}};
-        // conch_t2: conchadas acumuladas do 2º turno (noturno) — para estimativa quando balança não fechou
-        const conch_t2    = {brit:{}, l1:{}, l2:{}, l3:{}};
-        const prodLinha   = {brit:{}, l1:{}, l2:{}, l3:{}};
-        const matTot      = {brit:{}, l1:{}, l2:{}, l3:{}};
+        // balanca[key][data] = {d,n,dClosed,nClosed} — balança POR TURNO
+        const balanca   = {brit:{}, l1:{}, l2:{}, l3:{}};
+        // prodLinha[key][data] = {conch,prod,cd,cn,pd,pn} — conchadas/produção por turno
+        const prodLinha = {brit:{}, l1:{}, l2:{}, l3:{}};
+        const matTot    = {brit:{}, l1:{}, l2:{}, l3:{}};
 
         Object.entries(SEC).forEach(([sheetName, key]) => {
           const ws = wb.Sheets[sheetName];
           if (!ws) return;
           const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
-          let ultimaData   = null;
-          let t1Bal        = 0;   // balança do 1º turno (diurno)
-          let t2Bal        = 0;   // balança do 2º turno (noturno)
-          let turnoConch   = [0, 0]; // conchadas: [diurno, noturno]
-          let turnoIdx     = 0;   // 0=aguardando t1, 1=aguardando t2, 2=ambos
-
+          let ultimaData = null, prevData = null, turno = 'd'; // 'd'=diurno, 'n'=noturno
           rows.forEach(r => {
             const c0 = r[0];
             const data = fmtDate(c0);
             if (data) {
-              // Nova data: salva estado do dia anterior antes de resetar
-              if (data !== ultimaData) {
-                // ── Flush do dia anterior sem TOTAL GLOBAL (dia ainda em andamento) ──
-                // Se o dia anterior tinha t1Bal mas não encontrou TOTAL GLOBAL,
-                // precisamos salvar conch_t2 com o que foi acumulado até agora.
-                if (ultimaData && t1Bal > 0 && t2Bal === 0 && turnoConch[1] > 0) {
-                  conch_t2[key][ultimaData] = turnoConch[1];
-                }
-                ultimaData = data;
-                t1Bal      = 0;
-                t2Bal      = 0;
-                turnoConch = [0, 0];
-                turnoIdx   = 0;
-              }
-              // Conchadas e produção estimada por dia
+              // Linha horária. Mudança de data reinicia o ciclo no turno diurno.
+              if (data !== prevData) { turno = 'd'; prevData = data; }
+              ultimaData = data;
               const conch = typeof r[4]==='number' ? r[4] : 0;
               const prod  = typeof r[5]==='number' ? r[5] : 0;
               const mat   = cleanStr(r[3]);
-              if (!prodLinha[key][data]) prodLinha[key][data] = {conch:0, prod:0};
-              prodLinha[key][data].conch += conch;
-              prodLinha[key][data].prod  += prod;
+              if (!prodLinha[key][data]) prodLinha[key][data] = {conch:0, prod:0, cd:0, cn:0, pd:0, pn:0};
+              const o = prodLinha[key][data];
+              o.conch += conch; o.prod += prod;
+              if (turno === 'd') { o.cd += conch; o.pd += prod; }
+              else               { o.cn += conch; o.pn += prod; }
               if (mat && conch>0) matTot[key][mat] = (matTot[key][mat]||0) + conch;
-              // Acumula conchadas no turno atual (para estimar turno não fechado)
-              if (turnoIdx < 2) turnoConch[turnoIdx] += conch;
             } else if (typeof c0 === 'string') {
-              const cu = c0.toUpperCase();
-              const bal = typeof r[13]==='number' ? r[13] : 0;
-
-              if (cu.indexOf('TURNO') >= 0) {
-                // Linha de fechamento de turno — registra balança individual
-                if (turnoIdx === 0) {
-                  t1Bal = bal;         // 1º turno (diurno) — pode ser 0 se ainda aberto
-                  if (bal > 0 && ultimaData) balanca_t1[key][ultimaData] = bal;
-                  turnoIdx = 1;
-                } else {
-                  t2Bal = bal;         // 2º turno (noturno) — pode ser 0 se ainda aberto
-                  turnoIdx = 2;
+              const cu  = c0.toUpperCase();
+              // Balança só existe se o valor for um número positivo.
+              // bal=0 ou null = turno ainda aberto (a linha existe mas sem lançamento).
+              const balRaw = r[13];
+              const bal = typeof balRaw === 'number' && balRaw > 0 ? balRaw : 0;
+              const balFechada = bal > 0;
+              if (cu.indexOf('TURNO') >= 0 && ultimaData) {
+                if (!balanca[key][ultimaData]) balanca[key][ultimaData] = {d:0,n:0,dClosed:false,nClosed:false};
+                const b = balanca[key][ultimaData];
+                // Só fecha o turno se houver valor de balança lançado (bal > 0)
+                if (cu.indexOf('DIURNO') >= 0) {
+                  if (balFechada) { b.d = bal; b.dClosed = true; }
+                  turno = 'n'; // sempre muda para noturno após linha de TURNO DIURNO
+                } else if (cu.indexOf('NOTURNO') >= 0) {
+                  if (balFechada) { b.n = bal; b.nClosed = true; }
                 }
               } else if (cu.indexOf('TOTAL GLOBAL') >= 0) {
-                if (ultimaData) {
-                  // ── Determinação do estado ──────────────────────────────────
-                  // IMPORTANTE: NÃO usar o TOTAL GLOBAL para detectar estado.
-                  // A fórmula é =IFERROR(N_t1+N_t2,"") mas o SheetJS trata
-                  // células vazias como null na aritmética, então null+8000=8000
-                  // — o IFERROR nunca dispara e retorna 8000 mesmo com t2 aberto.
-                  //
-                  // Regras baseadas apenas nas balanças individuais dos turnos:
-                  //   Completo: t2Bal > 0 → usa t1Bal + t2Bal
-                  //   Parcial : t1Bal > 0 AND t2Bal == 0 → balanca_t1 + est_conch_t2
-                  //   Sem bal : t1Bal == 0 → só estimativa por conchadas
-
-                  if (t2Bal > 0) {
-                    // Ambos os turnos fecharam — total real
-                    const total = t1Bal + t2Bal;
-                    if (total > 0) balanca[key][ultimaData] = total;
-                  } else if (t1Bal > 0 && t2Bal === 0) {
-                    // Apenas 1º turno fechou — estado parcial
-                    // balanca_t1 já foi gravado quando encontrou a linha TURNO DIURNO
-                    // Salvar conchadas do 2º turno para estimativa
-                    if (turnoConch[1] > 0) {
-                      conch_t2[key][ultimaData] = turnoConch[1];
-                    }
-                  }
-                  // Estado C: nenhum turno tem balança → nada a gravar
-                }
-                t1Bal      = 0;
-                t2Bal      = 0;
-                turnoConch = [0, 0];
-                turnoIdx   = 0;
+                turno = 'd'; // próximo dia recomeça no diurno
               }
             }
           });
-
-          // ── Flush final: último dia da aba pode estar em andamento sem TOTAL GLOBAL ──
-          // Se o turno diurno já fechou (t1Bal > 0) e o noturno ainda está aberto
-          // (t2Bal = 0), salva as conchadas do noturno acumuladas até o fim do arquivo.
-          if (ultimaData && t1Bal > 0 && t2Bal === 0 && turnoConch[1] > 0) {
-            conch_t2[key][ultimaData] = turnoConch[1];
-          }
         });
 
-        // Tenta complementar com a aba Resumo (caso tenha valores que faltaram)
+        // Complementa com a aba Resumo (dias ausentes das abas de linha → trata como fechado)
         const wsR = wb.Sheets['Resumo'];
         if (wsR) {
           const rrows = XLSX.utils.sheet_to_json(wsR, {header:1, defval:null, raw:true});
           rrows.forEach(r => {
             const data = fmtDate(r[1]);
             if (!data) return;
-            const nb = typeof r[2]==='number' ? r[2] : 0;
-            const n1 = typeof r[3]==='number' ? r[3] : 0;
-            const n2 = typeof r[4]==='number' ? r[4] : 0;
-            const n3 = typeof r[5]==='number' ? r[5] : 0;
-            // Resumo só preenche se:
-            // 1. A linha ainda não tiver balança completa (t1+t2) vinda das abas
-            // 2. E o valor for maior que o t1 parcial (para garantir que é total real)
-            //    Isto evita que o Resumo sobrescreva com valor = apenas t1
-            const bt1 = balanca_t1.brit[data] || 0;
-            const l1t1 = balanca_t1.l1[data] || 0;
-            const l2t1 = balanca_t1.l2[data] || 0;
-            const l3t1 = balanca_t1.l3[data] || 0;
-            if (nb>0 && !balanca.brit[data] && nb > bt1)  balanca.brit[data] = nb;
-            if (n1>0 && !balanca.l1[data]   && n1 > l1t1) balanca.l1[data]   = n1;
-            if (n2>0 && !balanca.l2[data]   && n2 > l2t1) balanca.l2[data]   = n2;
-            if (n3>0 && !balanca.l3[data]   && n3 > l3t1) balanca.l3[data]   = n3;
+            const vals = {brit:r[2], l1:r[3], l2:r[4], l3:r[5]};
+            Object.entries(vals).forEach(([key,v]) => {
+              const num = typeof v==='number' ? v : 0;
+              if (num>0 && !balanca[key][data]) balanca[key][data] = {d:num, n:0, dClosed:true, nClosed:true};
+            });
           });
         }
+
+        // Balança do dia p/ uma linha = soma só dos turnos JÁ fechados
+        const diaBal = (key,data) => {
+          const b = balanca[key][data];
+          if (!b) return 0;
+          return (b.dClosed ? b.d : 0) + (b.nClosed ? b.n : 0);
+        };
 
         // Monta o resumo consolidado: total moagem = L1+L2+L3
         const todasDatas = [...new Set([
           ...Object.keys(balanca.brit), ...Object.keys(balanca.l1),
           ...Object.keys(balanca.l2),   ...Object.keys(balanca.l3),
-          ...Object.keys(balanca_t1.brit), ...Object.keys(balanca_t1.l1),
           ...Object.keys(prodLinha.l1)
         ])].sort();
         const resumo = todasDatas.map(data => {
-          const b  = balanca.brit[data] || 0;
-          const v1 = balanca.l1[data]   || 0;
-          const v2 = balanca.l2[data]   || 0;
-          const v3 = balanca.l3[data]   || 0;
+          const b  = diaBal('brit',data);
+          const v1 = diaBal('l1',data);
+          const v2 = diaBal('l2',data);
+          const v3 = diaBal('l3',data);
           return { data, dia: parseInt(data.slice(8,10)),
-                   brit:b, l1:v1, l2:v2, l3:v3, total: v1+v2+v3,
-                   // Dados extras para turno parcial
-                   brit_t1: balanca_t1.brit[data] || 0,
-                   l1_t1:   balanca_t1.l1[data]   || 0,
-                   l2_t1:   balanca_t1.l2[data]   || 0,
-                   l3_t1:   balanca_t1.l3[data]   || 0,
-                   brit_c2: conch_t2.brit[data]   || 0,
-                   l1_c2:   conch_t2.l1[data]     || 0,
-                   l2_c2:   conch_t2.l2[data]     || 0,
-                   l3_c2:   conch_t2.l3[data]     || 0,
-          };
+                   brit:b, l1:v1, l2:v2, l3:v3, total: v1+v2+v3 };
         });
 
-        PROD_PLANTA = { resumo, prod_linha: prodLinha, material_tot: matTot };
+        PROD_PLANTA = { resumo, prod_linha: prodLinha, material_tot: matTot, balanca };
       })();
 
       // Atualiza datas disponíveis no seletor do relatório
@@ -1823,6 +1762,8 @@ function handleFile(f) {
       window.UPLOAD_TS = _ultimoTs
         ? _ultimoTs.label
         : new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+      // Expõe o objeto Date do último timestamp para cálculo correto de DF
+      window.ULTIMO_TS_DATE = _ultimoTs ? _ultimoTs.data : null;
       setStatus(`✅ "${f.name}" — ${nDias} dias (${primeiro} → ${ultimo})`, 's-ok');
       document.getElementById('printBtn').style.display = 'block';
       document.getElementById('imgBtn').style.display   = 'block';
@@ -2010,21 +1951,11 @@ function posicionaTip(e){
 /* ══════════════════════════════════════════════════════════════
    ABA RELATÓRIO DO DIA
 ══════════════════════════════════════════════════════════════ */
-let R_MOT = {
-  brit: {"2026-06-01":[["Operacional ∥ Britador de facas ∥ Falta do operador do painel da britagem",12.0],["Inspeção ∥ Britador de facas ∥ Inspeção Geral",1.0],["Preventiva ∥ Britador de facas ∥ Lubrificação de rolamento / mancal",0.5]],"2026-06-02":[["Corretiva mecânica ∥ Britador de facas ∥ Troca de rolamento",11.0],["Preventiva ∥ Britador de facas ∥ Lubrificação de rolamento / mancal",1.0],["Corretiva mecânica ∥ TC 02 britagem ∥ Manutenção TC2",0.67],["Preventiva ∥ Britador de facas ∥ Aperto de parafusos do mancal",0.63]],"2026-06-03":[["Corretiva mecânica ∥ Britador de facas ∥ Troca de rolamento",10.0],["Corretiva mecânica ∥ Britador de facas ∥ Troca de rolamento",1.0],["Corretiva mecânica ∥ Britador de facas ∥ Aperto de parafusos do mancal",0.75],["Corretiva mecânica ∥ Britador de facas ∥ Aperto de parafusos do mancal",0.63],["Preventiva ∥ Britador de facas ∥ Lubrificação de rolamento / mancal",0.37]],"2026-06-04":[["Inspeção ∥ Britador de facas ∥ Troca de Facas",1.0],["Operacional ∥  ∥ Refeição",1.0],["Corretiva mecânica ∥ TC 02 britagem ∥ Manutenção TC2",0.67]],"2026-06-05":[["Preventiva ∥ Britador de facas ∥ Lubrificação",1.0],["Corretiva mecânica ∥ Britador de facas ∥ Aperto de parafusos do mancal",0.5]],"2026-06-06":[["Inspeção ∥ Britador de facas ∥ Inspeção Geral",2.0],["Corretiva mecânica ∥ Britador de facas ∥ Aperto de parafusos do mancal",0.42],["Corretiva mecânica ∥ TC 02 britagem ∥ Obstrução",0.33]],"2026-06-07":[["Corretiva mecânica ∥ Britador de facas ∥ Aperto de parafusos do mancal",3.5],["Preventiva ∥ Britador de facas ∥ Lubrificação",1.33],["Operacional ∥ TC 02 britagem ∥ Obstrução",1.0],["Preventiva ∥ Britador de facas ∥ Limpeza",0.45]],"2026-06-08":[["Corretiva mecânica ∥ Britador de facas ∥ Rotor solto / livre (chaveta escapou)",7.0],["Preventiva ∥ Britador de facas ∥ Lubrificação",4.0],["Corretiva mecânica ∥ TC 02 britagem ∥ Obstrução",1.0]],"2026-06-09":[["Corretiva mecânica ∥ Britador de facas ∥ Manutenção / troca de flange ou acoplamento",12.0],["Corretiva mecânica ∥ Britador de facas ∥ Manutenção volante do Britador",12.0]],"2026-06-10":[["Corretiva mecânica ∥ Britador de facas ∥ Manutenção volante do Britador",7.83],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",5.55],["Corretiva mecânica ∥ Britador de facas ∥ Manutenção na balata",0.95],["Operacional ∥  ∥ Pedra grande presa na boca / bica do moinho",0.62]],"2026-06-11":[["Corretiva mecânica ∥ Britador de facas ∥ Manutenção no redutor da TC",3.17],["Preventiva ∥ Britador de facas ∥ Lubrificação geral",1.0],["Operacional ∥ Britador de facas ∥ Engaiolamento de mataco",0.78]],"2026-06-12":[["Corretiva mecânica ∥ Britador de facas ∥ Serviço de solda — outros",12.0],["Corretiva mecânica ∥ Britador de facas ∥ Troca de rolamento",0.52],["Preventiva ∥ Britador de facas ∥ Aperto de parafusos do mancal",0.5]],"2026-06-13":[["Corretiva mecânica ∥ Britador de facas ∥ BRITAGEM PARADA QUEBROU O ROLETE DA TC 2",12.0],["Preventiva ∥ Britador de facas ∥ Lubrificação de rolamento / mancal",0.87],["Operacional ∥ Britador de facas ∥ 5s na tc2",0.52]],"2026-06-14":[["Corretiva mecânica ∥ TC 02 britagem ∥ Serviço de solda — outros",7.5],["Operacional ∥ Britador de facas ∥ Falta de operador de pá carregadeira",1.0],["Operacional ∥ Britador de facas ∥ Obstrução",0.35]],"2026-06-15":[["Operacional ∥ Britador de facas ∥ intervalo do almoco",1.17],["Corretiva mecânica ∥ Britador de facas ∥ Serviço de solda — outros",0.62],["Operacional ∥ Britador de facas ∥ Pedra grande presa na caixa do britador",0.5],["Operacional ∥ Britador de facas ∥ Pedra grande presa na caixa do britador",0.38],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.33]],"2026-06-16":[["Operacional ∥ Britador de facas ∥ Pedra grande presa na caixa do britador",3.5],["Operacional ∥ Britador de facas ∥ Pá carregadeira em manutenção",2.98],["Operacional ∥ Britador de facas ∥ Pedra grande presa na caixa do britador",0.7],["Operacional ∥ Britador de facas ∥ Obstrução",0.33],["Preventiva ∥ Britador de facas ∥ Limpeza ma TC 2",0.12]],"2026-06-17":[["Troca de componente de desgaste ∥ Britador de facas ∥ Inversão das facas",1.97],["Corretiva mecânica ∥ Britador de facas ∥ Chaveta solta / quebrada / soldada",1.83],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.92],["Operacional ∥ Britador de facas ∥ Pedra grande presa na caixa do britador",0.6],["Operacional ∥ Britador de facas ∥ Pedra grande presa na caixa do britador",0.38]],"2026-06-18":[["Operacional ∥ Britador de facas ∥ intervalo do almoco",1.33],["Troca de componente de desgaste ∥ Britador de facas ∥ Troca de Facas",1.33],["Corretiva mecânica ∥ Britador de facas ∥ foi feito solda nos cavalete dos rolete",1.0]],"2026-06-19":[["Corretiva mecânica ∥ Britador de facas ∥ Serviço de solda — outros",5.5]],"2026-06-20":[["Troca de componente de desgaste ∥  ∥ ",3.65],["Corretiva elétrica ∥  ∥ Inspeção elétrica",2.0]],"2026-06-21":[["Operacional ∥ Britador de facas ∥ falta de material",4.67],["Troca de componente de desgaste ∥  ∥ ",0.92],["Corretiva mecânica ∥  ∥ ",0.53],["Corretiva mecânica ∥  ∥ ",0.2]],"2026-06-22":[["Operacional ∥ Britador de facas ∥ Obstrução",2.77],["Operacional ∥ Britador de facas ∥ Obstrução da correia transportadora",2.17],["Operacional ∥ Britador de facas ∥ Pedra grande presa na caixa do britador",1.17],["Operacional ∥ Britador de facas ∥ falta de material",1.0]],"2026-06-23":[["Troca de componente de desgaste ∥ Britador de facas ∥ troca  de pino",6.0],["Corretiva mecânica ∥ Britador de facas ∥ fazendo um servico de solda no cavalete da tc02",2.0],["Corretiva mecânica ∥ Britador de facas ∥ Serviço de solda — outros",1.33],["Corretiva mecânica ∥ Britador de facas ∥ faze um servico de solda na tampa do britado",1.12],["Operacional ∥ Britador de facas ∥ Obstrução",1.1],["Operacional ∥ Britador de facas ∥ Obstrução",1.08],["Corretiva mecânica ∥ Britador de facas ∥ Apertar parafuso do mancal",0.83]],"2026-06-24":[["Corretiva mecânica ∥ Britador de facas ∥ emenda da tc 03",3.0],["Corretiva mecânica ∥ Britador de facas ∥ Serviço de solda — outros",1.57],["Troca de componente de desgaste ∥ Britador de facas ∥ Troca de balata",1.47],["Operacional ∥ Britador de facas ∥ Tampa do britador abriu",1.03],["Corretiva mecânica ∥ Britador de facas ∥ Apertar parafuso do mancal",0.5],["Corretiva mecânica ∥ Britador de facas ∥ Serviço de solda — outros",0.43]],"2026-06-25":[["Troca de componente de desgaste ∥ Britador de facas ∥ Troca de balata",1.0],["Operacional ∥ Britador de facas ∥ Obstrução",0.25]],"2026-06-26":[["Corretiva mecânica ∥ Britador de facas ∥ emenda da tc 03",1.63],["Corretiva mecânica ∥ Britador de facas ∥ TC3 travada",1.4],["Troca de componente de desgaste ∥ Britador de facas ∥ troca  de pino",0.82],["Operacional ∥ Britador de facas ∥ Engaiolamento de mataco",0.77]],"2026-06-27":[["Troca de componente de desgaste ∥ Britador de facas ∥ Troca de Facas",1.0]]},
-  l1: {"2026-06-01":[["Corretiva mecânica ∥ Bomba de rejeito ∥ Serviço de solda na bomba / tubulação de rejeito",1.25],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",1.0],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Serviço de solda — outros",1.0],["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de martelo",0.67],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.67],["Operacional ∥  ∥ Obstrução bica",0.63],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de grelha",0.63],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.33]],"2026-06-02":[["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca / reparo de eixo",1.0],["Operacional ∥ Moinho de bola 02 ∥ Obstrução no moinho de bola",0.82],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.67],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.67]],"2026-06-03":[["Corretiva mecânica ∥ Moinho de bola 01 ∥ Troca de operação para manutenção dos bolas",2.0],["Corretiva mecânica ∥ Bomba de rejeito ∥ Troca de Bomba",2.0],["Corretiva mecânica ∥ Bomba de rejeito ∥ Correia rasgada / danificada",1.0],["Operacional ∥ Moega ∥ Moega cheia",1.0],["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de martelo",0.75],["Operacional ∥ Caixa de Polpa ∥ Regulagem / ajuste do nível da caixa de polpa",0.65],["Corretiva mecânica ∥ Moinho de martelo 01 ∥ Retirada Bypass",0.5],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.33]],"2026-06-04":[["Operacional ∥ Bomba de rejeito ∥ Obstrução",4.5],["Corretiva mecânica ∥ Bomba de polpa 01 (8x6) ∥ Ineficiência da bomba",1.58],["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",0.68],["Operacional ∥ Caixa de Polpa ∥ Caixa de polpa cheia",0.58],["Operacional ∥ Moinho de martelo 01 ∥ Obstrução",0.47]],"2026-06-05":[["Operacional ∥ Moinho de martelo 01 ∥ Troca / substituição de balata",0.67],["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",0.63],["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",0.6],["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",0.5],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de grelha",0.45],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.1]],"2026-06-06":[["Corretiva elétrica ∥ Bomba de rejeito ∥ Motor queimado / superaquecido",7.2],["Corretiva mecânica ∥ Bomba de polpa 01 (8x6) ∥ Ineficiência da bomba",1.0],["Corretiva mecânica ∥ Moinho de martelo 01 ∥ Solda na Grelha",0.67],["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",0.58],["Corretiva mecânica ∥ Hidrociclone 01 ∥ Falha / obstrução no ciclone ou hidrociclone",0.5],["Corretiva elétrica ∥ Bomba de rejeito ∥ Motor queimado / superaquecido",0.33],["Corretiva mecânica ∥ Moinho de bola 02 ∥ Moinho de bola jogando material para fora / derramando",0.25]],"2026-06-07":[["Corretiva elétrica ∥ Bomba de rejeito ∥ Motor queimado / superaquecido",17.0],["Corretiva mecânica ∥ Moinho de bola 02 ∥ Falha ao partir - Moiho de bola parou cheio",7.0]],"2026-06-08":[["Corretiva mecânica ∥ Moinho de bola 02 ∥ Falha ao partir - Moiho de bola parou cheio",4.0],["Corretiva mecânica ∥ Bomba de rejeito ∥ Troca de motor da bomba",3.67],["Corretiva elétrica ∥ Bomba de rejeito ∥ Motor queimado / superaquecido",1.0],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.25],["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de martelo",0.25]],"2026-06-09":[["Operacional ∥ Moinho de martelo 01 ∥ Material não britável no moinho (ferro / objeto estranho)",2.27],["Corretiva mecânica ∥ Caixa de Polpa ∥ Serviço de solda — outros",2.0],["Operacional ∥ Centrífuga (RD) 02 L1 ∥ Obstrução",1.5],["Operacional ∥ Moinho de martelo 01 ∥ Obstrução bica",1.0],["Operacional ∥ Bomba de rejeito ∥ Vazamento na tubulação",0.63]],"2026-06-10":[["Corretiva mecânica ∥ Bomba de rejeito ∥ Ineficiência da bomba",10.92],["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",1.0],["Operacional ∥ Moinho de martelo 02 ∥ Moinho moendo grosso",0.58],["Operacional ∥  ∥ Obstrução",0.17],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.13]],"2026-06-11":[["Corretiva mecânica ∥ Bomba de rejeito ∥ Ineficiência da bomba",2.5],["Troca de componente de desgaste ∥ Hidrociclone L1 ∥ Troca de revestimento",1.67],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de balata",0.95]],"2026-06-12":[["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de martelo",4.5],["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de martelo",0.75],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.67],["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de grelha",0.62],["Preventiva ∥ Moinho de martelo 02 ∥ Aperto de parafusos do mancal",0.32],["Operacional ∥ Moinho de martelo 03 ∥ Moinho moendo grosso",0.27],["Operacional ∥ Moega ∥ Moega cheia",0.25]],"2026-06-13":[["Operacional ∥ Moinho de martelo 1 e 2 ∥ Aguardando material britado",5.0],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",1.37],["Operacional ∥ Moega ∥ Moega cheia",1.0],["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de martelo",0.8],["Corretiva mecânica ∥ Centrífuga (Falcon) 07 L1 bola ∥ Obstrução",0.75],["Corretiva elétrica ∥ Centrífuga (Falcon) 07 L1 bola ∥ Falha no inversor / variador de frequência",0.47]],"2026-06-14":[["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.83],["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de martelo",0.83],["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de grelha",0.78],["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",0.67],["Operacional ∥ Moinho de martelo 01 ∥ Pedra grande presa na boca / bica do moinho",0.33],["Preventiva ∥ Moinho de martelo 01 ∥ Aperto de parafusos do mancal",0.25]],"2026-06-15":[["Corretiva mecânica ∥ Moinho de martelo 02 ∥ troca do rolamento do volante",9.0],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.5],["Corretiva elétrica ∥ bomba de água limpa ∥ Ajuste na pressão",0.25]],"2026-06-16":[["Corretiva mecânica ∥ Moinho de martelo 01 ∥ Troca de volante",2.43],["Corretiva mecânica ∥ Moinho de martelo 02 ∥ Serviço de solda — outros",1.17],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.67],["Corretiva elétrica ∥ Centrífuga (Falcon) 07 L1 bola ∥ corrente alta / centrífuga parando",0.17],["Operacional ∥ Moinho de martelo 01 ∥ Obstrução",0.08]],"2026-06-17":[["Corretiva mecânica ∥ Moinho de martelo 01 ∥ Manutenção na balata",1.42],["Operacional ∥ Moinho de martelo 01 ∥ Material não britável no moinho (ferro / objeto estranho)",1.18],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.92],["Corretiva mecânica ∥ Moinho de martelo 02 ∥ Solda na bica",0.87],["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de martelo",0.58],["Corretiva mecânica ∥ Moinho de martelo 02 ∥ apertar parafuso do mancal",0.5],["Corretiva mecânica ∥ Hidrociclone L1 ∥ Serviço de solda — outros",0.5],["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",0.48],["Operacional ∥ Caixa de Polpa ∥ Ineficiência da bomba",0.33],["Corretiva mecânica ∥ Moinho de martelo 02 ∥ colocar parafuso do revestimento",0.28]],"2026-06-18":[["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de grelha",1.0],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.92],["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",0.58],["Corretiva mecânica ∥ Bomba de polpa 02 (6x4) CX 01 ∥ Ineficiência da bomba",0.5],["Corretiva mecânica ∥ Moinho de martelo 02 ∥ Apertar parafuso do mancal",0.45],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.38],["Operacional ∥ Moinho de martelo 01 ∥ Obstrução de bica do moinho",0.25],["Operacional ∥ Moinho de bola 01 ∥ Operacional",0.2]],"2026-06-19":[["Corretiva mecânica ∥ Moinho de martelo 01 ∥ Troca de rolamento",6.58],["Operacional ∥ Moinho de martelo 03 ∥ ",0.7],["Corretiva mecânica ∥ Moinho de martelo 02 ∥ Manutenção na balata",0.67],["Operacional ∥ Moinho de martelo 04 ∥ Troca de martelo",0.52],["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Troca de grelha",0.52],["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",0.5],["Corretiva elétrica ∥  ∥ Inspeção elétrica",0.5],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.42],["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",0.38]],"2026-06-20":[["Corretiva elétrica ∥  ∥ Inspeção elétrica",3.72],["Corretiva mecânica ∥ Moinho de martelo 01 ∥ reapertar bucha do rolamento",2.63],["Corretiva elétrica ∥ Bomba de polpa 01 (8x6) CX 01 ∥ Falha no inversor / variador de frequência",1.48],["Corretiva elétrica ∥ Centrífuga (RD) 01 L1 ∥ Queda de energia elétrica",0.93],["Corretiva elétrica ∥ Centrífuga (RD) 02 L1 ∥ Queda de energia elétrica",0.93],["Operacional ∥ Hidrociclone L1 ∥ Obstrução",0.73],["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ martelo desbulhou",0.72],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.58],["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de martelo",0.58],["Operacional ∥ Caixa de Polpa ∥ Ajuste do nível da caixa de polpa",0.35]],"2026-06-21":[["Corretiva mecânica ∥ Bomba de polpa 01 (8x6) CX 01 ∥ Troca / reparo de tubulação da bomba",12.0],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.9],["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de martelo",0.9],["Operacional ∥  ∥ Operacional",0.9],["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",0.73]],"2026-06-22":[["Corretiva mecânica ∥ Bomba de polpa 02 (6x4) CX 01 ∥ Troca de Bomba",12.0],["Corretiva mecânica ∥ Bomba de polpa 02 (6x4) CX 01 ∥ Troca de Bomba",5.43],["Operacional ∥ Hidrociclone L1 ∥ Obstrução",3.75]],"2026-06-23":[["Corretiva mecânica ∥ Moinho de martelo 1 e 2 ∥ Quebra da orelha do martelo",1.62],["Corretiva mecânica ∥  ∥ troca do bico do ciclone",1.33],["Operacional ∥ Moinho de martelo 01 ∥ Material não britável no moinho (ferro / objeto estranho)",1.33],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",1.0],["Corretiva mecânica ∥ Moinho de martelo 02 ∥ Manutenção na balata",0.78],["Operacional ∥ Moinho de martelo 02 ∥ Obstrução interna do moinho",0.3],["Corretiva mecânica ∥ Moinho de martelo 01 ∥ Apertar parafuso do mancal",0.25],["Operacional ∥ Moinho de martelo 02 ∥ Material não britável no moinho (ferro / objeto estranho)",0.15],["Operacional ∥ Moinho de martelo 01 ∥ Obstrução de bica do moinho",0.13]],"2026-06-24":[["Corretiva mecânica ∥ Moinho de martelo 01 ∥ Quebra da orelha do martelo",6.83],["Corretiva mecânica ∥ Moinho de martelo 02 ∥ Quebra da orelha do martelo",3.42],["Operacional ∥ Moinho de martelo 01 ∥ Obstrução de bica do moinho",1.5],["Operacional ∥ Moinho de martelo 1 e 2 ∥ Material não britável no moinho (ferro / objeto estranho)",1.0],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de grelha",0.5],["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",0.48],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.47],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de martelo",0.4],["Operacional ∥ Moinho de martelo 02 ∥ Material não britável no moinho (ferro / objeto estranho)",0.08]],"2026-06-25":[["Corretiva mecânica ∥ Bomba de polpa 02 (6x4) CX 01 ∥ Correia desalinhada / patinando",5.0],["Corretiva elétrica ∥ Moinho de martelo 02 ∥ vai ter que faze isolamento no cabo do moto moinho02",2.5],["Troca de componente de desgaste ∥ Moinho de martelo 02 ∥ Troca de martelo",1.5],["Operacional ∥ Moinho de martelo 02 ∥ Obstrução bica",1.18],["Corretiva mecânica ∥ Bomba de rejeito ∥ Serviço de solda — outros",1.17],["Operacional ∥ Centrífuga (RD) 01 L1 ∥ despesca manual",0.77],["Operacional ∥ Moinho de martelo 01 ∥ Moinho moendo grosso",0.68],["Operacional ∥ Centrífuga (RD) 02 L1 ∥ despesca manual",0.17],["Operacional ∥ Moinho de martelo 02 ∥ Material não britável no moinho (ferro / objeto estranho)",0.15],["Operacional ∥ Moinho de martelo 01 ∥ Material não britável no moinho (ferro / objeto estranho)",0.12],["Operacional ∥  ∥ Obstrução bica",0.07],["Operacional ∥  ∥ Obstrução bica",0.05]],"2026-06-26":[["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",1.77],["Corretiva mecânica ∥ Moinho de martelo 01 ∥ Manutenção na balata",1.33],["Troca de componente de desgaste ∥ Moinho de martelo 01 ∥ Troca de balata",1.07],["Operacional ∥  ∥ Obstrução bica",0.98],["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",0.9],["Corretiva mecânica ∥ Moinho de martelo 1 e 2 ∥ Apertar parafuso do mancal",0.25],["Operacional ∥ Moinho de martelo 02 ∥ Obstrução bica",0.08],["Operacional ∥ Moinho de martelo 02 ∥ Material não britável no moinho (ferro / objeto estranho)",0.07]],"2026-06-27":[["Troca de componente de desgaste ∥ Moinho de martelo 1 e 2 ∥ Troca de martelo",0.58]]},
-  l2: {"2026-06-03":[["Corretiva mecânica ∥ Bomba de rejeito ∥ Troca de correia da bomba",1.0],["Operacional ∥ Moega ∥ Moega cheia",1.0],["Operacional ∥ Bomba de polpa 02 (6x4) ∥ Regulagem / ajuste do nível da caixa de polpa",1.0],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução",0.8],["Corretiva mecânica ∥ Moinho de martelo 03 ∥ Material não britável no moinho (ferro / objeto estranho)",0.62]],"2026-06-07":[["Corretiva mecânica ∥ Alimentadora de sapata 02 ∥ Manutenção elétrica — falha ao partir",12.0],["Corretiva mecânica ∥ Alimentadora de sapata 02 ∥ Manutenção elétrica — falha ao partir",12.0]],"2026-06-09":[["Operacional ∥ Bomba de rejeito ∥ Vazamento na tubulação",6.0],["Operacional ∥ Moinho de martelo 03 ∥ Material não britável no moinho (ferro / objeto estranho)",5.5],["Corretiva mecânica ∥ Caixa de Polpa ∥ Serviço de solda — outros",2.0]],"2026-06-10":[["Corretiva elétrica ∥  ∥ Queda de energia elétrica",5.55],["Corretiva mecânica ∥ Bomba de rejeito ∥ Ineficiência da bomba",2.5],["Corretiva mecânica ∥ Bomba de rejeito ∥ Troca de Bomba",2.33],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",0.28],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.13],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução bica",0.12],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",0.1]],"2026-06-11":[["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",2.25],["Corretiva mecânica ∥ Bomba de rejeito ∥ Ineficiência da bomba",2.0],["Troca de componente de desgaste ∥ Hidrociclone L1 ∥ Troca de revestimento",1.67],["Troca de componente de desgaste ∥ Moinho de martelo 03 ∥ Troca de martelo",1.17],["Operacional ∥ Alimentadora de sapata 02 ∥ Obstrução interna do moinho",0.62],["Corretiva mecânica ∥ Hidrociclone L1 ∥ Obstrução",0.58],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",0.35],["Corretiva elétrica ∥ Centrífuga (RD) 03 L2 ∥ Falha na automação / sistema de controle",0.1]],"2026-06-12":[["Troca de componente de desgaste ∥ Moinho de martelo 03 ∥ Troca de martelo",1.22],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",1.07],["Operacional ∥ Moega ∥ Moega cheia",0.47]],"2026-06-13":[["Operacional ∥ Moinho de martelo 03 ∥ Aguardando material britado",5.0],["Operacional ∥  ∥ Moega cheia",1.0],["Operacional ∥ Moega ∥ Moega cheia",1.0],["Operacional ∥ Moega ∥ Moega cheia",1.0],["Corretiva mecânica ∥ Centrífuga (Falcon) 07 L1 bola ∥ Obstrução",0.75],["Corretiva elétrica ∥ Alimentadora de sapata 02 ∥ Falha na automação / sistema de controle",0.5],["Corretiva elétrica ∥ Centrífuga (Falcon) 07 L1 bola ∥ Falha no inversor / variador de frequência",0.47],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",0.33],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",0.17]],"2026-06-14":[["Operacional ∥ Moinho de martelo 03 ∥ Pedra grande presa na boca / bica do moinho",1.23]],"2026-06-15":[["Troca de componente de desgaste ∥ Moinho de martelo 03 ∥ Troca de martelo",0.55],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.33],["Corretiva elétrica ∥ bomba de água limpa ∥ Ajuste na pressão",0.25]],"2026-06-16":[["Troca de componente de desgaste ∥ Moinho de martelo 03 ∥ Troca de martelo",0.83],["Troca de componente de desgaste ∥ Moinho de martelo 03 ∥ Reposição de Grelha",0.47],["Corretiva elétrica ∥ Centrífuga (Falcon) 07 L1 bola ∥ corrente alta / centrífuga parando",0.17]],"2026-06-17":[["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",1.08],["Operacional ∥ Caixa de Polpa ∥ Ineficiência da bomba",1.0],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.92],["Corretiva mecânica ∥ Hidrociclone L1 ∥ Serviço de solda — outros",0.5],["Operacional ∥ Moinho de martelo 03 ∥ Material não britável no moinho (ferro / objeto estranho)",0.22],["Troca de componente de desgaste ∥ Moinho de martelo 03 ∥ Troca de martelo",0.18]],"2026-06-18":[["Corretiva mecânica ∥ Moinho de bola 01 ∥ ARREBENTOU ACOPLAMENTO DO BOLA 01",2.0],["Troca de componente de desgaste ∥ Moinho de martelo 03 ∥ Troca de martelo",0.68],["Corretiva mecânica ∥ Bomba de polpa 02 (6x4) CX 01 ∥ Ineficiência da bomba",0.5],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.38]],"2026-06-19":[["Corretiva elétrica ∥ Moinho de martelo 03 ∥ Não operando na potência correta",12.0],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",1.62],["Troca de componente de desgaste ∥ Moinho de martelo 03 ∥ Troca de martelo",0.67],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",0.47]],"2026-06-20":[["Corretiva elétrica ∥  ∥ Inspeção elétrica",4.72],["Corretiva elétrica ∥ Centrífuga (RD) 03 L2 ∥ Queda de energia elétrica",0.88],["Troca de componente de desgaste ∥ Moinho de martelo 03 ∥ arrebentou a orelha do martelo",0.82],["Operacional ∥ Hidrociclone L1 ∥ Obstrução",0.73],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",0.5],["Operacional ∥ Caixa de Polpa ∥ Ajuste do nível da caixa de polpa",0.35],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",0.33],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",0.2]],"2026-06-21":[["Troca de componente de desgaste ∥ Moinho de martelo 03 ∥ Troca de martelo",0.55],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",0.4],["Operacional ∥ Bomba de polpa 02 (6x4) CX 01 ∥ Ajuste do nível da caixa de polpa",0.25],["Operacional ∥ Moinho de martelo 03 ∥ ",0.22],["Operacional ∥ Bomba de polpa 02 (6x4) CX 01 ∥ Ajuste do nível da caixa de polpa",0.12]],"2026-06-22":[["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",1.95],["Operacional ∥ Moinho de martelo 03 ∥ Martelo soltou",1.85],["Operacional ∥  ∥ Desobstrução tubulação da goiania",1.67],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",0.5],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",0.48],["Operacional ∥ Moinho de martelo 03 ∥ Material não britável no moinho (ferro / objeto estranho)",0.33],["Operacional ∥ Moinho de martelo 03 ∥ Moinho moendo grosso",0.23],["Operacional ∥ Bomba de polpa 01 (8x6) CX 01 ∥ Ajuste do nível da caixa de polpa",0.17],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",0.1],["Operacional ∥ Bomba de polpa 01 (8x6) CX 01 ∥ Ajuste do nível da caixa de polpa",0.08]],"2026-06-23":[["Troca de componente de desgaste ∥ Moinho de martelo 03 ∥ Troca de martelo",1.08],["Corretiva mecânica ∥ Moinho de martelo 03 ∥ Quebra da orelha do martelo",0.92],["Corretiva mecânica ∥ Moinho de martelo 03 ∥ Manutenção na balata",0.83],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução interna do moinho",0.73],["Operacional ∥ Moinho de martelo 03 ∥ Martelo soltou",0.65],["Operacional ∥ Moinho de martelo 03 ∥ ajuste no forro/ vazamento",0.28],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução bica",0.18],["Operacional ∥ Moinho de martelo 03 ∥ Material não britável no moinho (ferro / objeto estranho)",0.13],["Operacional ∥ Moinho de martelo 03 ∥ Material não britável no moinho (ferro / objeto estranho)",0.1]],"2026-06-24":[["Operacional ∥ Moinho de martelo 03 ∥ Moinho moendo grosso",1.0],["Operacional ∥ Moinho de martelo 03 ∥ Material não britável no moinho (ferro / objeto estranho)",0.95],["Operacional ∥ Moinho de martelo 03 ∥ Material não britável no moinho (ferro / objeto estranho)",0.53],["Operacional ∥ Moinho de martelo 03 ∥ Material não britável no moinho (ferro / objeto estranho)",0.18],["Operacional ∥ Moinho de martelo 03 ∥ Material não britável no moinho (ferro / objeto estranho)",0.15],["Operacional ∥ Moinho de martelo 03 ∥ Material não britável no moinho (ferro / objeto estranho)",0.12],["Operacional ∥ Moinho de martelo 03 ∥ Material não britável no moinho (ferro / objeto estranho)",0.1]],"2026-06-25":[["Operacional ∥ Bomba de polpa 02 (6x4) CX 01 ∥ Obstrução da correia transportadora",1.83],["Operacional ∥ Moinho de martelo 03 ∥ Material não britável no moinho (ferro / objeto estranho)",1.12],["Corretiva elétrica ∥ Centrífuga (RD) 03 L2 ∥ Falha na guilhotina",1.03],["Troca de componente de desgaste ∥ Moinho de martelo 03 ∥ Troca de martelo",0.52],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução bica",0.23],["Operacional ∥ Moinho de martelo 03 ∥ Material não britável no moinho (ferro / objeto estranho)",0.15],["Operacional ∥ Moinho de martelo 03 ∥ Material não britável no moinho (ferro / objeto estranho)",0.1]],"2026-06-26":[["Operacional ∥ Moinho de martelo 03 ∥ Martelo soltou",5.75],["Operacional ∥ Moinho de martelo 03 ∥ Material preso na esteira",1.5],["Operacional ∥ Moinho de martelo 03 ∥ Obstrução bica",1.38],["Preventiva ∥ Moinho de martelo 03 ∥ Recolocado saco do moinho",0.57],["Preventiva ∥ Moinho de martelo 03 ∥ Recolocado saco do moinho",0.25]]},
-  l3: {"2026-06-01":[["Corretiva elétrica ∥ Alimentadora de sapata 03 ∥ Manutenção TC3",15.0],["Operacional ∥ Moinho de martelo 04 ∥ Obstrução",0.75],["Operacional ∥ Moinho de bola 04 ∥ Moinho moendo grosso",0.67],["Operacional ∥ Moinho de bola 04 ∥ Desobstrução interna do moinho",0.37]],"2026-06-02":[["Corretiva mecânica ∥ TC 3 ∥ Correia desalinhada / patinando",1.0],["Corretiva mecânica ∥ Bomba de polpa 04 ∥ Não operando corretamente",1.0],["Operacional ∥ Moinho de martelo 05 ∥ Obstrução",1.0],["Troca de componente de desgaste ∥ Moinho de martelo 03 ∥ Troca de martelo",0.67],["Inspeção ∥ Hidrociclone 03 ∥ Inspeção Geral",0.5],["Troca de componente de desgaste ∥ Moinho de martelo 04 ∥ Troca de martelo",0.5],["Operacional ∥ Moinho de martelo 04 ∥ Moinho moendo grosso",0.5]],"2026-06-03":[["Corretiva mecânica ∥ Bomba de rejeito ∥ Troca de Bomba",3.0],["Corretiva mecânica ∥ Bomba de rejeito ∥ Correia rasgada / danificada",1.0],["Corretiva elétrica ∥ Hidrociclone 03 ∥ Obstrução",1.0],["Operacional ∥ Moega ∥ Moega cheia",1.0],["Troca de componente de desgaste ∥ Moinho de martelo 03 ∥ ",0.5]],"2026-06-04":[["Operacional ∥ Bomba de rejeito ∥ Obstrução",4.0],["Corretiva elétrica ∥ moinho de martelo 4 e 5 ∥ Manutenção elétrica — falha ao partir",1.42],["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Troca de grelha",1.0],["Corretiva elétrica ∥ Bomba de polpa 03 (8x6) ∥ ",1.0],["Operacional ∥ Bomba de rejeito ∥ Ineficiência da bomba",0.75]],"2026-06-05":[["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Solda na Grelha",1.0],["Operacional ∥ Moinho de martelo 04 ∥ Obstrução",1.0],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.75],["Troca de componente de desgaste ∥ Moinho de martelo 04 ∥ Troca de martelo",0.5],["Operacional ∥ Moinho de martelo 05 ∥ Obstrução na caixa de saída do moinho",0.33],["Inspeção ∥ moinho de martelo 4 e 5 ∥ Inspeção de martelos e grelhas",0.32]],"2026-06-06":[["Corretiva elétrica ∥ Bomba de rejeito ∥ Motor queimado / superaquecido",7.0],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.75],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.5],["Corretiva mecânica ∥ Moinho de martelo 05 ∥ Solda na bica",0.33],["Corretiva elétrica ∥ Bomba de rejeito ∥ Motor queimado / superaquecido",0.33],["Inspeção ∥ Centrífuga (RD) 06 L3 bola ∥ Inspeção Geral",0.17]],"2026-06-07":[["Corretiva elétrica ∥ Bomba de rejeito ∥ Motor queimado / superaquecido",12.0],["Corretiva elétrica ∥ Bomba de rejeito ∥ Motor queimado / superaquecido",6.0]],"2026-06-08":[["Corretiva mecânica ∥ Bomba de rejeito ∥ Troca de motor",5.08],["Corretiva mecânica ∥ Moinho de martelo 04 ∥ Solda na bica",1.0],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.33],["Troca de componente de desgaste ∥ Moinho de martelo 04 ∥ Troca de martelo",0.33],["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Troca de martelo",0.33],["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Troca / substituição de balata",0.33],["Troca de componente de desgaste ∥ Moinho de martelo 04 ∥ Troca de martelo",0.25],["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Troca de martelo",0.25]],"2026-06-09":[["Corretiva mecânica ∥ Bomba de polpa 03 (8x6) CX 02 ∥ Serviço de solda na bomba / tubulação de rejeito",12.0],["Corretiva mecânica ∥ Bomba de rejeito ∥ Encanamento furado",0.63],["Corretiva mecânica ∥ Moinho de martelo 04 ∥ Solda na bica",0.63],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.5],["Operacional ∥ Moinho de martelo 04 ∥ Moinho moendo grosso",0.3]],"2026-06-10":[["Troca de componente de desgaste ∥ Hidrociclone L3 ∥ Troca de revestimento",10.0],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",5.55],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.33],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.13]],"2026-06-11":[["Corretiva elétrica ∥ Centrífuga (RD) 08 L3 bola ∥ Falha na automação / sistema de controle",8.83],["Corretiva mecânica ∥ Bomba de rejeito ∥ Ineficiência da bomba",2.0],["Troca de componente de desgaste ∥ Hidrociclone L3 ∥ Troca de revestimento",1.17],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.87],["Operacional ∥ Moinho de martelo 5 ∥ Obstrução interna do moinho",0.67],["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Troca de grelha",0.63]],"2026-06-12":[["Corretiva elétrica ∥ Centrífuga (RD) 08 L3 bola ∥ Falha na automação / sistema de controle",2.95],["Operacional ∥ moinho de martelo 4 e 5 ∥ Obstrução de bica do moinho",1.8],["Operacional ∥ moinho de martelo 4 e 5 ∥ Moinho moendo grosso",0.82],["Operacional ∥ moinho de martelo 4 e 5 ∥ Moinho moendo grosso",0.67],["Operacional ∥ Moinho de martelo 04 ∥ Moinho moendo grosso",0.5],["Operacional ∥ Moinho de martelo 05 ∥ Moinho moendo grosso",0.5]],"2026-06-13":[["Operacional ∥ moinho de martelo 4 e 5 ∥ Aguardando material britado",5.0],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",1.0],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.82]],"2026-06-14":[["Preventiva ∥ Centrífuga (RD) 05 L3 ∥ Manutenção preventiva programada",1.0],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.5],["Operacional ∥ Moinho de martelo 04 ∥ Obstrução de bica do moinho",0.13]],"2026-06-15":[["Corretiva elétrica ∥ Centrífuga (RD) 05 L3 ∥ Manutenção elétrica — falha ao partir",1.33],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.92],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.88],["Corretiva mecânica ∥ Hidrociclone L3 ∥ Serviço de solda — outros",0.42],["Operacional ∥ Moinho de martelo 04 ∥ Obstrução",0.33],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.33],["Corretiva elétrica ∥ bomba de água limpa ∥ Ajuste na pressão",0.25],["Operacional ∥ Moinho de martelo 05 ∥ Obstrução interna do moinho",0.08]],"2026-06-16":[["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Troca de grelha",2.9],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.58],["Troca de componente de desgaste ∥ Moinho de martelo 04 ∥ Troca de martelo",0.5],["Operacional ∥ Moinho de martelo 04 ∥ Obstrução de bica do moinho",0.4],["Operacional ∥ Moinho de martelo 05 ∥ Material não britável no moinho (ferro / objeto estranho)",0.33]],"2026-06-17":[["Troca de componente de desgaste ∥ Hidrociclone L3 ∥ Troca de revestimento",10.95],["Corretiva mecânica ∥ Moinho de bola 04 ∥ Recolocado borracha do moinho de bola",1.07],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.92],["Corretiva elétrica ∥ Centrífuga (RD) 08 L3 bola ∥ corrente alta / centrífuga parando",0.33],["Troca de componente de desgaste ∥ Moinho de martelo 04 ∥ Troca de martelo",0.33],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.32],["Corretiva elétrica ∥ Centrífuga (RD) 08 L3 bola ∥ corrente alta / centrífuga parando",0.17],["Operacional ∥ Moinho de martelo 04 ∥ Obstrução bica",0.15],["Operacional ∥ Moinho de martelo 05 ∥ Material não britável no moinho (ferro / objeto estranho)",0.08]],"2026-06-18":[["Troca de componente de desgaste ∥ Hidrociclone L3 ∥ Colocar parafuso do revestimento",5.73],["Corretiva elétrica ∥ Centrífuga (Falcon) 06 L1 bola ∥ Corretiva no motor",1.62],["Operacional ∥ Moinho de martelo 04 ∥ Moinho moendo grosso",0.45],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.42],["Corretiva elétrica ∥  ∥ Queda de energia elétrica",0.38],["Operacional ∥ Moinho de martelo 04 ∥ Obstrução de bica do moinho",0.35],["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Troca de martelo",0.3],["Operacional ∥ Moinho de martelo 04 ∥ Obstrução de bica do moinho",0.22]],"2026-06-19":[["Operacional ∥ Moinho de martelo 04 ∥ Obstrução de bica do moinho",0.67],["Operacional ∥ Troca de componente de desgaste ∥ Troca de martelo",0.52],["Corretiva elétrica ∥  ∥ Inspeção elétrica",0.5],["Operacional ∥ Moinho de martelo 04 ∥ Obstrução de bica do moinho",0.48],["Corretiva mecânica ∥ Moinho de martelo 05 ∥ Apertar parafuso do mancal",0.43],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.4],["Operacional ∥ Moinho de martelo 05 ∥ Material não britável no moinho (ferro / objeto estranho)",0.23],["Operacional ∥ Moinho de martelo 04 ∥ Pedra grande presa na boca / bica do moinho",0.22],["Operacional ∥ Moinho de martelo 04 ∥ Pedra grande presa na boca / bica do moinho",0.15]],"2026-06-20":[["Corretiva elétrica ∥  ∥ Inspeção elétrica",3.72],["Troca de componente de desgaste ∥ Moinho de martelo 04 ∥ arrebentou a orelha do martelo",1.57],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",1.05],["Corretiva elétrica ∥ Centrífuga (RD) 04 L3 ∥ Queda de energia elétrica",0.83],["Corretiva elétrica ∥ Centrífuga (RD) 06 L3 bola ∥ Queda de energia elétrica",0.83],["Operacional ∥ moinho de martelo 4 e 5 ∥ Moinho moendo grosso",0.72],["Operacional ∥ Moinho de martelo 05 ∥ Obstrução interna do moinho",0.37],["Troca de componente de desgaste ∥ Moinho de martelo 04 ∥ Troca de martelo",0.33],["Operacional ∥ Moinho de martelo 04 ∥ Material não britável no moinho (ferro / objeto estranho)",0.33],["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Troca de martelo",0.3],["Corretiva elétrica ∥ Centrífuga (RD) 06 L3 bola ∥ corrente alta / centrífuga parando",0.12],["Operacional ∥ Moinho de martelo 04 ∥ Material não britável no moinho (ferro / objeto estranho)",0.1]],"2026-06-21":[["Operacional ∥ Moinho de martelo 04 ∥ Material não britável no moinho (ferro / objeto estranho)",1.13],["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Troca de martelo",0.85],["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Troca de martelo",0.8],["Operacional ∥  ∥ faze um sevico de solda na bica",0.62],["Operacional ∥ Moinho de martelo 05 ∥ Obstrução interna do moinho",0.27],["Preventiva ∥ moinho de martelo 4 e 5 ∥ Inspeção de martelos e grelhas",0.27],["Operacional ∥ Moinho de martelo 05 ∥ Material não britável no moinho (ferro / objeto estranho)",0.12]],"2026-06-22":[["Troca de componente de desgaste ∥ Moinho de martelo 04 ∥ Troca de balata",1.85],["Operacional ∥  ∥ Desobstrução tubulação da goiania",1.67],["Troca de componente de desgaste ∥ Moinho de martelo 04 ∥ Troca de martelo",1.0],["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Troca de martelo",1.0],["Troca de componente de desgaste ∥ Moinho de martelo 04 ∥ Troca de martelo",1.0],["Operacional ∥ Moinho de martelo 05 ∥ Obstrução de bica do moinho",0.83],["Corretiva mecânica ∥ Hidrociclone L3 ∥ Serviço de solda — outros",0.47],["Operacional ∥ Moinho de martelo 05 ∥ Moinho vibrando",0.4],["Troca de componente de desgaste ∥ Moinho de martelo 04 ∥ Troca de martelo",0.4],["Corretiva mecânica ∥ Moinho de martelo 04 ∥ Apertar parafuso do mancal",0.37],["Operacional ∥ Moinho de martelo 04 ∥ Material não britável no moinho (ferro / objeto estranho)",0.12]],"2026-06-23":[["Corretiva mecânica ∥ Moinho de martelo 05 ∥ Troca de eixo",9.33],["Corretiva mecânica ∥ Moinho de martelo 04 ∥ Quebra da orelha do martelo",1.17],["Operacional ∥ Moinho de bola 04 ∥ Moinho de bola jogando material para fora / derramando",0.52],["Troca de componente de desgaste ∥ Moinho de martelo 04 ∥ Troca de martelo",0.43],["Operacional ∥ Moinho de bola 04 ∥ Moinho de bola jogando material para fora / derramando",0.35],["Operacional ∥ Moinho de bola 04 ∥ Moinho de bola jogando material para fora / derramando",0.23],["Operacional ∥ Moinho de bola 04 ∥ Moinho de bola jogando material para fora / derramando",0.2]],"2026-06-24":[["Corretiva mecânica ∥ Moinho de martelo 05 ∥ Troca de eixo",6.17],["Operacional ∥ Moinho de bola 04 ∥ Moinho de bola jogando material para fora / derramando",2.47],["Operacional ∥ Moinho de bola 04 ∥ Moinho de bola jogando material para fora / derramando",1.98],["Corretiva mecânica ∥ moinho de martelo 4 e 5 ∥ reforço de solda nas orelhas dos martelos",1.33],["Operacional ∥ moinho de martelo 4 e 5 ∥ Obsobstrução da caixa de recebimento dos moinhos",1.17],["Operacional ∥ Moinho de bola 04 ∥ Moinho de bola jogando material para fora / derramando",1.0],["Operacional ∥ moinho de martelo 4 e 5 ∥ Moinho moendo grosso",1.0],["Operacional ∥ Moinho de bola 04 ∥ Moinho de bola jogando material para fora / derramando",0.5],["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Troca de martelo",0.28]],"2026-06-25":[["Corretiva mecânica ∥ Moinho de martelo 04 ∥ Troca de eixo",4.48],["Operacional ∥ Moinho de martelo 05 ∥ Obstrução de bica do moinho",0.93],["Troca de componente de desgaste ∥ Moinho de martelo 04 ∥ Troca de martelo",0.65],["Troca de componente de desgaste ∥ Moinho de martelo 05 ∥ Troca de martelo",0.58],["Operacional ∥ Moinho de martelo 05 ∥ Material não britável no moinho (ferro / objeto estranho)",0.3],["Operacional ∥ Moinho de martelo 05 ∥ Material não britável no moinho (ferro / objeto estranho)",0.27],["Operacional ∥ Moinho de martelo 04 ∥ Material não britável no moinho (ferro / objeto estranho)",0.23],["Operacional ∥ Moinho de martelo 05 ∥ Material não britável no moinho (ferro / objeto estranho)",0.13],["Operacional ∥ Moinho de bola 04 ∥ Moinho de bola jogando material para fora / derramando",0.07],["Operacional ∥ Moinho de martelo 05 ∥ Material não britável no moinho (ferro / objeto estranho)",0.05],["Operacional ∥  ∥ Obstrução bica",0.05]],"2026-06-26":[["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",1.55],["Troca de componente de desgaste ∥ Moinho de martelo 04 ∥ arrebentou a orelha do martelo",1.43],["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.55],["Operacional ∥ Moinho de martelo 05 ∥ Moinho moendo grosso",0.23],["Operacional ∥ Moinho de martelo 04 ∥ Obstrução interna do moinho",0.18],["Operacional ∥ Moinho de martelo 04 ∥ Material não britável no moinho (ferro / objeto estranho)",0.08],["Operacional ∥ Moinho de martelo 04 ∥ Obstrução bica",0.08]],"2026-06-27":[["Troca de componente de desgaste ∥ moinho de martelo 4 e 5 ∥ Troca de martelo",0.5]]}
-};
+let R_MOT = { brit:{}, l1:{}, l2:{}, l3:{} };
 
-let R_KPI = {
-  brit: {"2026-06-01":{"hp":10.5,"hs":13.5,"df":43.8},"2026-06-02":{"hp":10.7,"hs":13.3,"df":44.6},"2026-06-03":{"hp":11.2,"hs":12.8,"df":46.7},"2026-06-04":{"hp":21.3,"hs":2.7,"df":88.8},"2026-06-05":{"hp":22.5,"hs":1.5,"df":93.8},"2026-06-06":{"hp":21.2,"hs":2.8,"df":88.3},"2026-06-07":{"hp":17.7,"hs":6.3,"df":73.8},"2026-06-08":{"hp":12.0,"hs":12.0,"df":50.0},"2026-06-09":{"hp":0,"hs":24,"df":0.0},"2026-06-10":{"hp":9.1,"hs":14.9,"df":37.9},"2026-06-11":{"hp":19.0,"hs":5.0,"df":79.2},"2026-06-12":{"hp":11.0,"hs":13.0,"df":45.8},"2026-06-13":{"hp":10.6,"hs":13.4,"df":44.2},"2026-06-14":{"hp":15.2,"hs":8.8,"df":63.3},"2026-06-15":{"hp":21.0,"hs":3.0,"df":87.5},"2026-06-16":{"hp":16.4,"hs":7.6,"df":68.3},"2026-06-17":{"hp":18.3,"hs":5.7,"df":76.2},"2026-06-18":{"hp":20.3,"hs":3.7,"df":84.6},"2026-06-19":{"hp":18.5,"hs":5.5,"df":77.1},"2026-06-20":{"hp":18.3,"hs":5.7,"df":76.2},"2026-06-21":{"hp":17.7,"hs":6.3,"df":73.8},"2026-06-22":{"hp":16.9,"hs":7.1,"df":70.4},"2026-06-23":{"hp":10.5,"hs":13.5,"df":43.8},"2026-06-24":{"hp":16.0,"hs":8.0,"df":66.7},"2026-06-25":{"hp":22.8,"hs":1.2,"df":95.0},"2026-06-26":{"hp":19.4,"hs":4.6,"df":80.8},"2026-06-27":{"hp":23.0,"hs":1.0,"df":95.8}},
-  l1: {"2026-06-01":{"hp":17.8,"hs":6.2,"df":74.2},"2026-06-02":{"hp":20.9,"hs":3.1,"df":87.1},"2026-06-03":{"hp":15.8,"hs":8.2,"df":65.8},"2026-06-04":{"hp":16.2,"hs":7.8,"df":67.5},"2026-06-05":{"hp":21.0,"hs":3.0,"df":87.5},"2026-06-06":{"hp":13.5,"hs":10.5,"df":56.2},"2026-06-07":{"hp":0,"hs":24,"df":0.0},"2026-06-08":{"hp":14.8,"hs":9.2,"df":61.7},"2026-06-09":{"hp":16.6,"hs":7.4,"df":69.2},"2026-06-10":{"hp":11.2,"hs":12.8,"df":46.7},"2026-06-11":{"hp":18.9,"hs":5.1,"df":78.8},"2026-06-12":{"hp":16.6,"hs":7.4,"df":69.2},"2026-06-13":{"hp":14.6,"hs":9.4,"df":60.8},"2026-06-14":{"hp":20.3,"hs":3.7,"df":84.6},"2026-06-15":{"hp":14.2,"hs":9.8,"df":59.2},"2026-06-16":{"hp":19.5,"hs":4.5,"df":81.2},"2026-06-17":{"hp":16.9,"hs":7.1,"df":70.4},"2026-06-18":{"hp":19.7,"hs":4.3,"df":82.1},"2026-06-19":{"hp":13.2,"hs":10.8,"df":55.0},"2026-06-20":{"hp":11.3,"hs":12.7,"df":47.1},"2026-06-21":{"hp":8.6,"hs":15.4,"df":35.8},"2026-06-22":{"hp":2.8,"hs":21.2,"df":11.7},"2026-06-23":{"hp":17.1,"hs":6.9,"df":71.2},"2026-06-24":{"hp":9.3,"hs":14.7,"df":38.8},"2026-06-25":{"hp":10.7,"hs":13.3,"df":44.6},"2026-06-26":{"hp":17.5,"hs":6.5,"df":72.9},"2026-06-27":{"hp":23.4,"hs":0.6,"df":97.5}},
-  l2: {"2026-06-01":{"hp":0,"hs":24.0,"df":0.0},"2026-06-02":{"hp":0,"hs":24.0,"df":0.0},"2026-06-03":{"hp":7.6,"hs":16.4,"df":31.7},"2026-06-04":{"hp":0,"hs":24.0,"df":0.0},"2026-06-05":{"hp":0,"hs":24.0,"df":0.0},"2026-06-06":{"hp":0,"hs":24.0,"df":0.0},"2026-06-07":{"hp":0,"hs":24,"df":0.0},"2026-06-09":{"hp":10.5,"hs":13.5,"df":43.8},"2026-06-10":{"hp":13.0,"hs":11.0,"df":54.2},"2026-06-11":{"hp":15.3,"hs":8.7,"df":63.8},"2026-06-12":{"hp":21.2,"hs":2.8,"df":88.3},"2026-06-13":{"hp":13.8,"hs":10.2,"df":57.5},"2026-06-14":{"hp":22.8,"hs":1.2,"df":95.0},"2026-06-15":{"hp":22.9,"hs":1.1,"df":95.4},"2026-06-16":{"hp":22.5,"hs":1.5,"df":93.8},"2026-06-17":{"hp":20.1,"hs":3.9,"df":83.8},"2026-06-18":{"hp":20.4,"hs":3.6,"df":85.0},"2026-06-19":{"hp":9.2,"hs":14.8,"df":38.3},"2026-06-20":{"hp":15.5,"hs":8.5,"df":64.6},"2026-06-21":{"hp":22.5,"hs":1.5,"df":93.8},"2026-06-22":{"hp":16.6,"hs":7.4,"df":69.2},"2026-06-23":{"hp":19.1,"hs":4.9,"df":79.6},"2026-06-24":{"hp":21.0,"hs":3.0,"df":87.5},"2026-06-25":{"hp":19.0,"hs":5.0,"df":79.2},"2026-06-26":{"hp":14.6,"hs":9.4,"df":60.8},"2026-06-27":{"hp":24.0,"hs":0.0,"df":100.0}},
-  l3: {"2026-06-01":{"hp":7.2,"hs":16.8,"df":30.0},"2026-06-02":{"hp":18.8,"hs":5.2,"df":78.3},"2026-06-03":{"hp":17.5,"hs":6.5,"df":72.9},"2026-06-04":{"hp":15.8,"hs":8.2,"df":65.8},"2026-06-05":{"hp":20.1,"hs":3.9,"df":83.8},"2026-06-06":{"hp":14.9,"hs":9.1,"df":62.1},"2026-06-07":{"hp":6.0,"hs":18.0,"df":25.0},"2026-06-08":{"hp":16.1,"hs":7.9,"df":67.1},"2026-06-09":{"hp":9.9,"hs":14.1,"df":41.2},"2026-06-10":{"hp":8.0,"hs":16.0,"df":33.3},"2026-06-11":{"hp":9.8,"hs":14.2,"df":40.8},"2026-06-12":{"hp":16.8,"hs":7.2,"df":70.0},"2026-06-13":{"hp":17.2,"hs":6.8,"df":71.7},"2026-06-14":{"hp":22.4,"hs":1.6,"df":93.3},"2026-06-15":{"hp":19.5,"hs":4.5,"df":81.2},"2026-06-16":{"hp":19.3,"hs":4.7,"df":80.4},"2026-06-17":{"hp":9.7,"hs":14.3,"df":40.4},"2026-06-18":{"hp":14.5,"hs":9.5,"df":60.4},"2026-06-19":{"hp":20.4,"hs":3.6,"df":85.0},"2026-06-20":{"hp":13.7,"hs":10.3,"df":57.1},"2026-06-21":{"hp":20.0,"hs":4.0,"df":83.3},"2026-06-22":{"hp":14.9,"hs":9.1,"df":62.1},"2026-06-23":{"hp":11.8,"hs":12.2,"df":49.2},"2026-06-24":{"hp":8.1,"hs":15.9,"df":33.8},"2026-06-25":{"hp":16.2,"hs":7.8,"df":67.5},"2026-06-26":{"hp":19.9,"hs":4.1,"df":82.9},"2026-06-27":{"hp":23.5,"hs":0.5,"df":97.9}}
-};
+let R_KPI = { brit:{}, l1:{}, l2:{}, l3:{} };
 
-let PROD_PLANTA = {"resumo":[{"data":"2026-06-01","dia":1,"brit":2154940,"l1":1757900,"l2":0,"l3":587710,"total":2345610},{"data":"2026-06-02","dia":2,"brit":1395660,"l1":1267940,"l2":0,"l3":1410150,"total":2678090},{"data":"2026-06-03","dia":3,"brit":706900,"l1":920210,"l2":206440,"l3":1059450,"total":2186100},{"data":"2026-06-04","dia":4,"brit":1875020,"l1":831020,"l2":0,"l3":1028760,"total":1859780},{"data":"2026-06-05","dia":5,"brit":2434390,"l1":1285490,"l2":0,"l3":1215450,"total":2500940},{"data":"2026-06-06","dia":6,"brit":2359570,"l1":856550,"l2":0,"l3":1005450,"total":1862000},{"data":"2026-06-07","dia":7,"brit":2605400,"l1":0,"l2":0,"l3":400530,"total":400530},{"data":"2026-06-08","dia":8,"brit":987370,"l1":671380,"l2":0,"l3":929640,"total":1601020},{"data":"2026-06-09","dia":9,"brit":0,"l1":657290,"l2":281560,"l3":793480,"total":1732330},{"data":"2026-06-10","dia":10,"brit":1068180,"l1":407720,"l2":536030,"l3":559540,"total":1503290},{"data":"2026-06-11","dia":11,"brit":1336870,"l1":787890,"l2":397090,"l3":638593,"total":1823573},{"data":"2026-06-12","dia":12,"brit":877840,"l1":755400,"l2":645730,"l3":937090,"total":2338220},{"data":"2026-06-13","dia":13,"brit":1451850,"l1":933420,"l2":334320,"l3":1107070,"total":2374810},{"data":"2026-06-14","dia":14,"brit":1931450,"l1":988390,"l2":554390,"l3":1270090,"total":2812870},{"data":"2026-06-15","dia":15,"brit":3065870,"l1":422090,"l2":847000,"l3":1375890,"total":2644980},{"data":"2026-06-16","dia":16,"brit":2181780,"l1":855790,"l2":482720,"l3":1125600,"total":2464110},{"data":"2026-06-17","dia":17,"brit":2314550,"l1":987050,"l2":491700,"l3":561612,"total":2040362},{"data":"2026-06-18","dia":18,"brit":1062910,"l1":944800,"l2":448000,"l3":835080,"total":2227880},{"data":"2026-06-19","dia":19,"brit":1567550,"l1":1507330,"l2":132750,"l3":1207520,"total":2847600},{"data":"2026-06-20","dia":20,"brit":1795770,"l1":900470,"l2":468230,"l3":900450,"total":2269150},{"data":"2026-06-21","dia":21,"brit":2159490,"l1":354670,"l2":639570,"l3":1282590,"total":2276830},{"data":"2026-06-22","dia":22,"brit":1587000,"l1":258960,"l2":466190,"l3":1272530,"total":1997680},{"data":"2026-06-23","dia":23,"brit":792770,"l1":1370470,"l2":398370,"l3":741900,"total":2510740},{"data":"2026-06-24","dia":24,"brit":1761430,"l1":671170,"l2":467180,"l3":402790,"total":1541140},{"data":"2026-06-25","dia":25,"brit":3091830,"l1":674130,"l2":382200,"l3":763150,"total":1819480},{"data":"2026-06-26","dia":26,"brit":2049200,"l1":1174890,"l2":393130,"l3":1521810,"total":3089830},{"data":"2026-06-27","dia":27,"brit":1350000,"l1":680000,"l2":980000,"l3":1000000,"total":2660000}],"prod_linha":{"brit":{"2026-06-01":{"conch":330,"prod":1650},"2026-06-02":{"conch":284,"prod":1420},"2026-06-03":{"conch":181,"prod":905},"2026-06-04":{"conch":421,"prod":2105},"2026-06-05":{"conch":517,"prod":2585},"2026-06-06":{"conch":505,"prod":2525},"2026-06-07":{"conch":540,"prod":2700},"2026-06-08":{"conch":229,"prod":1145},"2026-06-09":{"conch":0,"prod":0},"2026-06-10":{"conch":192,"prod":960},"2026-06-11":{"conch":339,"prod":1695},"2026-06-12":{"conch":280,"prod":1400},"2026-06-13":{"conch":270,"prod":1350},"2026-06-14":{"conch":366,"prod":1830},"2026-06-15":{"conch":569,"prod":2845},"2026-06-16":{"conch":457,"prod":2285},"2026-06-17":{"conch":487,"prod":2435},"2026-06-18":{"conch":362,"prod":1810},"2026-06-19":{"conch":386,"prod":1855},"2026-06-20":{"conch":487,"prod":2435},"2026-06-21":{"conch":443,"prod":2215},"2026-06-22":{"conch":335,"prod":1675},"2026-06-23":{"conch":263,"prod":1315},"2026-06-24":{"conch":441,"prod":2205},"2026-06-25":{"conch":661,"prod":3305},"2026-06-26":{"conch":465,"prod":2325},"2026-06-27":{"conch":320,"prod":1600},"2026-06-28":{"conch":0,"prod":0},"2026-06-29":{"conch":0,"prod":0},"2026-06-30":{"conch":0,"prod":0}},"l1":{"2026-06-01":{"conch":310,"prod":1240},"2026-06-02":{"conch":230,"prod":920},"2026-06-03":{"conch":190,"prod":760},"2026-06-04":{"conch":199,"prod":796},"2026-06-05":{"conch":309,"prod":1236},"2026-06-06":{"conch":207,"prod":828},"2026-06-07":{"conch":0,"prod":0},"2026-06-08":{"conch":159,"prod":636},"2026-06-09":{"conch":121,"prod":484},"2026-06-10":{"conch":96,"prod":384},"2026-06-11":{"conch":192,"prod":768},"2026-06-12":{"conch":187,"prod":748},"2026-06-13":{"conch":194,"prod":776},"2026-06-14":{"conch":192,"prod":768},"2026-06-15":{"conch":86,"prod":344},"2026-06-16":{"conch":214,"prod":856},"2026-06-17":{"conch":203,"prod":812},"2026-06-18":{"conch":243,"prod":972},"2026-06-19":{"conch":258,"prod":1032},"2026-06-20":{"conch":179,"prod":716},"2026-06-21":{"conch":95,"prod":380},"2026-06-22":{"conch":44,"prod":176},"2026-06-23":{"conch":272,"prod":1088},"2026-06-24":{"conch":137,"prod":548},"2026-06-25":{"conch":156,"prod":624},"2026-06-26":{"conch":232,"prod":928},"2026-06-27":{"conch":227,"prod":908},"2026-06-28":{"conch":0,"prod":0},"2026-06-29":{"conch":0,"prod":0},"2026-06-30":{"conch":0,"prod":0}},"l2":{"2026-06-01":{"conch":0,"prod":0},"2026-06-02":{"conch":0,"prod":0},"2026-06-03":{"conch":48,"prod":192},"2026-06-04":{"conch":0,"prod":0},"2026-06-05":{"conch":0,"prod":0},"2026-06-06":{"conch":0,"prod":0},"2026-06-07":{"conch":0,"prod":0},"2026-06-08":{"conch":0,"prod":0},"2026-06-09":{"conch":59,"prod":236},"2026-06-10":{"conch":113,"prod":452},"2026-06-11":{"conch":102,"prod":408},"2026-06-12":{"conch":152,"prod":593},"2026-06-13":{"conch":83,"prod":332},"2026-06-14":{"conch":127,"prod":508},"2026-06-15":{"conch":188,"prod":752},"2026-06-16":{"conch":139,"prod":556},"2026-06-17":{"conch":108,"prod":432},"2026-06-18":{"conch":116,"prod":464},"2026-06-19":{"conch":40,"prod":160},"2026-06-20":{"conch":97,"prod":388},"2026-06-21":{"conch":123,"prod":492},"2026-06-22":{"conch":95,"prod":380},"2026-06-23":{"conch":91,"prod":364},"2026-06-24":{"conch":88,"prod":352},"2026-06-25":{"conch":85,"prod":340},"2026-06-26":{"conch":85,"prod":340},"2026-06-27":{"conch":256,"prod":1024},"2026-06-28":{"conch":0,"prod":0},"2026-06-29":{"conch":0,"prod":0},"2026-06-30":{"conch":0,"prod":0}},"l3":{"2026-06-01":{"conch":103,"prod":412},"2026-06-02":{"conch":289,"prod":1156},"2026-06-03":{"conch":199,"prod":796},"2026-06-04":{"conch":199,"prod":796},"2026-06-05":{"conch":245,"prod":980},"2026-06-06":{"conch":230,"prod":920},"2026-06-07":{"conch":73,"prod":292},"2026-06-08":{"conch":208,"prod":832},"2026-06-09":{"conch":153,"prod":612},"2026-06-10":{"conch":156,"prod":624},"2026-06-11":{"conch":146,"prod":584},"2026-06-12":{"conch":190,"prod":760},"2026-06-13":{"conch":269,"prod":1076},"2026-06-14":{"conch":266,"prod":1064},"2026-06-15":{"conch":247,"prod":988},"2026-06-16":{"conch":262,"prod":1048},"2026-06-17":{"conch":109,"prod":436},"2026-06-18":{"conch":213,"prod":852},"2026-06-19":{"conch":230,"prod":920},"2026-06-20":{"conch":210,"prod":840},"2026-06-21":{"conch":249,"prod":996},"2026-06-22":{"conch":248,"prod":992},"2026-06-23":{"conch":173,"prod":692},"2026-06-24":{"conch":86,"prod":344},"2026-06-25":{"conch":162,"prod":648},"2026-06-26":{"conch":261,"prod":1044},"2026-06-27":{"conch":279,"prod":1116},"2026-06-28":{"conch":0,"prod":0},"2026-06-29":{"conch":0,"prod":0},"2026-06-30":{"conch":0,"prod":0}}},"material_tot":{"brit":{"Alto teor":4518,"Baixo teor":5612},"l1":{"Alto teor":1715,"Baixo teor":2995,"Rabo de bica":162},"l2":{"Baixo teor":1471,"Alto teor":462,"Goiânia":28,"Rabo de bica":204},"l3":{"Baixo teor":3245,"Alto teor":2029,"Rabo de bica":18}}};
+let PROD_PLANTA = {resumo:[], prod_linha:{brit:{},l1:{},l2:{},l3:{}}, material_tot:{brit:{},l1:{},l2:{},l3:{}}, balanca:{brit:{},l1:{},l2:{},l3:{}}};
 
 /* ══════════════════════════════════════════════════════════════
    DASHBOARD PRODUÇÃO — Diário + Mensal + Impactantes
@@ -2060,6 +1991,36 @@ function initProducaoDates() { resetDashProd(); }
 function resetProducao()     { resetDashProd(); }
 function renderProducao()    { resetDashProd(); }  // sempre vai para o último dia ao entrar
 
+// ── prodEfetiva — escopo global ──────────────────────────────────────────────
+// Retorna a produção "ao vivo" de uma linha para um dia, turno a turno:
+//   • Turno sem balança → estimativa = conch × fator
+//   • Turno com balança → valor real
+//   • Total = diurno + noturno  (nunca descarta um turno pelo outro)
+const FATOR_EST_GLOBAL      = 4; // moagens
+const FATOR_EST_BRIT_GLOBAL = 5; // britador
+function prodEfetiva(key, d) {
+  if (typeof PROD_PLANTA === 'undefined') return {total:0, pD:0, pN:0, dClosed:false, nClosed:false, estimando:false, conch:0};
+  const fator  = key === 'brit' ? FATOR_EST_BRIT_GLOBAL : FATOR_EST_GLOBAL;
+  const b      = (PROD_PLANTA.balanca && PROD_PLANTA.balanca[key])
+                  ? (PROD_PLANTA.balanca[key][d] || null) : null;
+  const pl     = (PROD_PLANTA.prod_linha[key] || {})[d] || {};
+  const cd     = pl.cd != null ? pl.cd : (pl.conch || 0);
+  const cn     = pl.cn != null ? pl.cn : 0;
+  let pD, pN, dClosed, nClosed;
+  if (b) {
+    dClosed = !!b.dClosed; nClosed = !!b.nClosed;
+    pD = dClosed ? (b.d || 0) : cd * fator * 1000;
+    pN = nClosed ? (b.n || 0) : cn * fator * 1000;
+  } else {
+    const rr  = PROD_PLANTA.resumo.find(r => r.data === d);
+    const fig = rr ? (rr[key] || 0) : 0;
+    pD = fig; pN = 0; dClosed = fig > 0; nClosed = fig > 0;
+  }
+  const total     = pD + pN;
+  const estimando = (!dClosed && cd > 0) || (!nClosed && cn > 0);
+  return { total, pD, pN, dClosed, nClosed, estimando, conch: cd + cn };
+}
+
 function renderDashProd() {
   const el = document.getElementById('dpData');
   const data = el ? el.value : '';
@@ -2082,76 +2043,20 @@ function renderDashProd() {
   // ── DIÁRIO ─────────────────────────────────────────────────────────────────
   const rDia = PROD_PLANTA.resumo.find(r => r.data === data);
 
-  // Conchadas do dia (sempre disponíveis)
-  const britC = ((PROD_PLANTA.prod_linha.brit||{})[data]||{}).conch || 0;
-  const l1C   = ((PROD_PLANTA.prod_linha.l1||{})[data]||{}).conch  || 0;
-  const l2C   = ((PROD_PLANTA.prod_linha.l2||{})[data]||{}).conch  || 0;
-  const l3C   = ((PROD_PLANTA.prod_linha.l3||{})[data]||{}).conch  || 0;
+  // ── PRODUÇÃO POR TURNO — usa prodEfetiva() global ──────────────────────────
+  // Cada turno: balança se fechou, estimativa (conch×fator) se ainda aberto.
+  // Total do dia = diurno + noturno, sempre somados.
+  const FATOR_EST      = FATOR_EST_GLOBAL;
+  const FATOR_EST_BRIT = FATOR_EST_BRIT_GLOBAL;
 
-  // Balança COMPLETA do dia (ambos turnos fechados)
-  const britBalanca = rDia ? (rDia.brit || 0) : 0;
-  const l1Balanca   = rDia ? (rDia.l1   || 0) : 0;
-  const l2Balanca   = rDia ? (rDia.l2   || 0) : 0;
-  const l3Balanca   = rDia ? (rDia.l3   || 0) : 0;
-
-  // Balança PARCIAL do 1º turno (diurno fechado, noturno ainda aberto)
-  const britBal_t1 = rDia ? (rDia.brit_t1 || 0) : 0;
-  const l1Bal_t1   = rDia ? (rDia.l1_t1   || 0) : 0;
-  const l2Bal_t1   = rDia ? (rDia.l2_t1   || 0) : 0;
-  const l3Bal_t1   = rDia ? (rDia.l3_t1   || 0) : 0;
-
-  // Conchadas do 2º turno (noturno) — usadas para estimar quando balança do 2º não fechou
-  const britC_t2 = rDia ? (rDia.brit_c2 || 0) : 0;
-  const l1C_t2   = rDia ? (rDia.l1_c2   || 0) : 0;
-  const l2C_t2   = rDia ? (rDia.l2_c2   || 0) : 0;
-  const l3C_t2   = rDia ? (rDia.l3_c2   || 0) : 0;
-
-  // Usa balança se disponível; caso contrário estima por conchadas
-  const FATOR_EST      = 4; // t/conchada — moagens L1, L2, L3
-  const FATOR_EST_BRIT = 5; // t/conchada — britador (capacidade maior)
-
-  // ── Lógica de 3 estados por linha ──
-  // Estado A: balança completa (ambos turnos) → usa britBalanca diretamente
-  // Estado B: só 1º turno fechou → britBal_t1 + estimativa das conchadas do 2º turno
-  // Estado C: nenhum turno fechou → estimativa por conchadas totais do dia
-  const britTemBalancaTotal = britBalanca > 0;
-  const britTemT1           = britBal_t1 > 0;
-  const l1TemBalancaTotal   = l1Balanca  > 0;
-  const l1TemT1             = l1Bal_t1   > 0;
-  const l2TemBalancaTotal   = l2Balanca  > 0;
-  const l2TemT1             = l2Bal_t1   > 0;
-  const l3TemBalancaTotal   = l3Balanca  > 0;
-  const l3TemT1             = l3Bal_t1   > 0;
-
-  // Flags para o aviso visual
-  const britTemBalanca = britTemBalancaTotal;
-  const l1TemBalanca   = l1TemBalancaTotal;
-  const l2TemBalanca   = l2TemBalancaTotal;
-  const l3TemBalanca   = l3TemBalancaTotal;
-
-  // Cálculo considerando turno parcial
-  function calcT(balTotal, balT1, cTotal, cT2, fator) {
-    if (balTotal > 0) return balTotal;                              // A: completo
-    if (balT1 > 0)   return balT1 + (cT2 * fator * 1000);         // B: parcial + estimativa t2
-    return cTotal * fator * 1000;                                  // C: só estimativa
-  }
-
-  const britT = calcT(britBalanca, britBal_t1, britC, britC_t2, FATOR_EST_BRIT);
-  const l1T   = calcT(l1Balanca,  l1Bal_t1,   l1C,  l1C_t2,   FATOR_EST);
-  const l2T   = calcT(l2Balanca,  l2Bal_t1,   l2C,  l2C_t2,   FATOR_EST);
-  const l3T   = calcT(l3Balanca,  l3Bal_t1,   l3C,  l3C_t2,   FATOR_EST);
-
-  // Flag: tem estimativa ativa (parcial ou total)
-  const britParcial = !britTemBalancaTotal && britBal_t1 > 0;
-  const l1Parcial   = !l1TemBalancaTotal   && l1Bal_t1  > 0;
-  const l2Parcial   = !l2TemBalancaTotal   && l2Bal_t1  > 0;
-  const l3Parcial   = !l3TemBalancaTotal   && l3Bal_t1  > 0;
+  const britR = prodEfetiva('brit',data), l1R = prodEfetiva('l1',data), l2R = prodEfetiva('l2',data), l3R = prodEfetiva('l3',data);
+  const britC = britR.conch, l1C = l1R.conch, l2C = l2R.conch, l3C = l3R.conch;
+  const britT = britR.total, l1T = l1R.total, l2T = l2R.total, l3T = l3R.total;
   const moagT = l1T + l2T + l3T;
 
-  // Função helper de aviso — agora distingue parcial vs sem balança
-  function avisoEst(temBalancaTotal, parcial, conch) {
-    if (temBalancaTotal || conch === 0) return '';
-    if (parcial) return '<span class="aviso-est">⚠️ 1º turno fechado — estimando 2º turno</span>';
+  // Aviso: aparece enquanto algum turno ainda está em estimativa
+  function avisoEst(estimando, conch) {
+    if (!estimando || conch === 0) return '';
     return '<span class="aviso-est">⚠️ Estimativa — balança não fechada</span>';
   }
 
@@ -2159,48 +2064,62 @@ function renderDashProd() {
   document.getElementById('dpBritT').textContent = britT>0 ? fmtT(britT) : '—';
   document.getElementById('dpBritC').textContent = britC>0 ? britC.toLocaleString('pt-BR') : '—';
   const bAv = document.getElementById('dpBritAviso');
-  if (bAv) bAv.innerHTML = avisoEst(britTemBalanca, britParcial, britC);
+  if (bAv) bAv.innerHTML = avisoEst(britR.estimando, britC);
 
   // Atualiza Moagem diário
   document.getElementById('dpMoagTotal').textContent = moagT>0 ? fmtT(moagT) : '—';
-  const algumaSemBalanca = (!l1TemBalanca&&l1C>0) || (!l2TemBalanca&&l2C>0) || (!l3TemBalanca&&l3C>0);
-  const algumaParc       = l1Parcial || l2Parcial || l3Parcial;
+  const algumaSemBalanca = l1R.estimando || l2R.estimando || l3R.estimando;
   const mAv = document.getElementById('dpMoagAviso');
   if (mAv) mAv.textContent = algumaSemBalanca ? '⚠️ parcial est.' : '';
   const mBalAv = document.getElementById('dpMoagBalAviso');
-  if (mBalAv) mBalAv.innerHTML = algumaSemBalanca
-    ? (algumaParc
-        ? '<span class="aviso-est">⚠️ 1º turno fechado — estimando 2º turno</span>'
-        : '<span class="aviso-est">⚠️ Estimativa — balança não fechada</span>')
-    : '';
+  if (mBalAv) mBalAv.innerHTML = algumaSemBalanca ? '<span class="aviso-est">⚠️ Estimativa — balança não fechada</span>' : '';
   const conchTotalDia = l1C + l2C + l3C;
   const moagConchEl = document.getElementById('dpMoagConchTotal');
   if (moagConchEl) moagConchEl.textContent = conchTotalDia > 0 ? conchTotalDia.toLocaleString('pt-BR') : '—';
 
-  const setLinha = (id, t, c, temBal, parcial) => {
-    document.getElementById(id+'T').textContent = t>0 ? fmtT(t) + (temBal||c===0?'':' ~') : '—';
+  const setLinha = (id, r, c) => {
+    document.getElementById(id+'T').textContent = r.total>0 ? fmtT(r.total) + (r.estimando?' ~':'') : '—';
     document.getElementById(id+'C').textContent = c>0 ? c+' conch' : '—';
     const avEl = document.getElementById(id+'Aviso');
-    if (avEl) avEl.innerHTML = (!temBal && c>0)
-      ? (parcial
-          ? '<span class="aviso-est">⚠️ 1º turno fechado — estimando 2º</span>'
-          : '<span class="aviso-est">⚠️ Sem balança</span>')
-      : '';
+    if (avEl) avEl.innerHTML = r.estimando ? '<span class="aviso-est">⚠️ Sem balança</span>' : '';
   };
-  setLinha('dpL1',l1T,l1C,l1TemBalanca,l1Parcial);
-  setLinha('dpL2',l2T,l2C,l2TemBalanca,l2Parcial);
-  setLinha('dpL3',l3T,l3C,l3TemBalanca,l3Parcial);
+  setLinha('dpL1',l1R,l1C);
+  setLinha('dpL2',l2R,l2C);
+  setLinha('dpL3',l3R,l3C);
 
   // DF por seção
-  // Base de horas para hoje: decorrido desde 7h; dias passados: 24h
+  // Base de horas para hoje: usa o ÚLTIMO timestamp da planilha (não hora atual do browser).
+  // Ex: planilha atualizada às 23:00 → base = 23-7 = 16h, mesmo abrindo o BI às 8h do dia seguinte.
   const _hojeDP = new Date();
   const _hojeDPStr = _hojeDP.getFullYear()+'-'+String(_hojeDP.getMonth()+1).padStart(2,'0')+'-'+String(_hojeDP.getDate()).padStart(2,'0');
-  const _baseHDP = data === _hojeDPStr
-    ? Math.max(0.1, +(_hojeDP.getHours() + _hojeDP.getMinutes()/60 - 7).toFixed(2))
-    : 24;
+  // Para o dia selecionado: se é hoje, usa min(hora_ultimo_dado_planilha, hora_atual); senão 24h
+  function _calcBase(dataStr) {
+    if (dataStr !== _hojeDPStr) return 24;
+    // Usa o timestamp do último dado da planilha para a data de hoje
+    let refH;
+    if (window.ULTIMO_TS_DATE) {
+      const ts = window.ULTIMO_TS_DATE;
+      const tsDataStr = ts.getFullYear()+'-'+String(ts.getMonth()+1).padStart(2,'0')+'-'+String(ts.getDate()).padStart(2,'0');
+      if (tsDataStr === dataStr) {
+        // Último dado é de hoje: usa essa hora como base
+        refH = ts.getHours() + ts.getMinutes()/60;
+      } else {
+        // Último dado é de outro dia: usa hora atual
+        refH = _hojeDP.getHours() + _hojeDP.getMinutes()/60;
+      }
+    } else {
+      refH = _hojeDP.getHours() + _hojeDP.getMinutes()/60;
+    }
+    return Math.max(0.1, +(refH - 7).toFixed(2));
+  }
+  const _baseHDP = _calcBase(data);
 
   const setDF = (pre, key) => {
-    const kpi = (R_KPI[key]||{})[data];
+    let kpi = (R_KPI[key]||{})[data];
+    // Fallback: dia atual sem paradas — cria entrada com base no tempo decorrido
+    if (!kpi && data === _hojeDPStr) {
+      kpi = { hp: _baseHDP, hs: 0, df: 100 };
+    }
     const dfEl = document.getElementById(pre+'DF'+key.charAt(0).toUpperCase()+key.slice(1));
     const hpEl = document.getElementById(pre+'HP'+key.charAt(0).toUpperCase()+key.slice(1));
     const hsEl = document.getElementById(pre+'HS'+key.charAt(0).toUpperCase()+key.slice(1));
@@ -2221,31 +2140,36 @@ function renderDashProd() {
 
   // ── MENSAL ─────────────────────────────────────────────────────────────────
   const mes = data.slice(0,7); // "2026-06"
-  // Dias com balança fechada no mês
+  // Dias do mês com balança fechada (usado no gráfico de evolução diária)
   const dadosMes = PROD_PLANTA.resumo.filter(r => r.data.startsWith(mes) && (r.total>0||r.brit>0));
-
-  // Balança acumulada
-  const mBritBalanca = dadosMes.reduce((s,r)=>s+r.brit,0);
-  const mL1Balanca   = dadosMes.reduce((s,r)=>s+r.l1,0);
-  const mL2Balanca   = dadosMes.reduce((s,r)=>s+r.l2,0);
-  const mL3Balanca   = dadosMes.reduce((s,r)=>s+r.l3,0);
-
-  // Conchadas de dias SEM balança fechada (estimativa complementar)
-  // FATOR_EST já declarado acima (moagens=4, britador=5)
-  const diasComBalanca = new Set(dadosMes.map(r=>r.data));
-  // Dia atual: balança ainda não fechou, não conta como "sem balança" no acumulado
+  // Dia atual: turno em andamento não entra na estimativa do acumulado
   const _hojeMs = new Date();
   const _hojeMsStr = _hojeMs.getFullYear()+'-'+String(_hojeMs.getMonth()+1).padStart(2,'0')+'-'+String(_hojeMs.getDate()).padStart(2,'0');
-  function conchSemBalanca(linhaKey) {
-    const fator = linhaKey === 'brit' ? FATOR_EST_BRIT : FATOR_EST;
-    return Object.entries((PROD_PLANTA.prod_linha[linhaKey]||{}))
-      .filter(([d,v]) => d.startsWith(mes) && !diasComBalanca.has(d) && (v.conch||0)>0 && d !== _hojeMsStr)
-      .reduce((s,[,v])=>s+(v.conch||0)*fator*1000, 0);
+
+  // Acumulado mensal: reutiliza prodEfetiva() para consistência total com o diário.
+  // Turnos abertos do dia de HOJE não entram na estimativa (mês não fecha o dia pela metade).
+  function _mesAcc(key){
+    const dias = new Set();
+    PROD_PLANTA.resumo.forEach(r=>{ if(r.data.startsWith(mes)) dias.add(r.data); });
+    Object.keys(PROD_PLANTA.prod_linha[key]||{}).forEach(d=>{ if(d.startsWith(mes)) dias.add(d); });
+    let bal=0, est=0;
+    dias.forEach(d=>{
+      const pe = prodEfetiva(key, d);
+      if (d === _hojeMsStr) {
+        // Dia atual: só conta o que já fechou via balança, não estima parcial
+        bal += pe.dClosed ? pe.pD : 0;
+        bal += pe.nClosed ? pe.pN : 0;
+      } else {
+        // Dia passado: balança onde fechou + estimativa onde não fechou
+        if (pe.dClosed) bal += pe.pD; else est += pe.pD;
+        if (pe.nClosed) bal += pe.pN; else est += pe.pN;
+      }
+    });
+    return {bal, est};
   }
-  const mBritEst = conchSemBalanca('brit');
-  const mL1Est   = conchSemBalanca('l1');
-  const mL2Est   = conchSemBalanca('l2');
-  const mL3Est   = conchSemBalanca('l3');
+  const _accBrit=_mesAcc('brit'), _accL1=_mesAcc('l1'), _accL2=_mesAcc('l2'), _accL3=_mesAcc('l3');
+  const mBritBalanca=_accBrit.bal, mL1Balanca=_accL1.bal, mL2Balanca=_accL2.bal, mL3Balanca=_accL3.bal;
+  const mBritEst=_accBrit.est,     mL1Est=_accL1.est,     mL2Est=_accL2.est,     mL3Est=_accL3.est;
   const mMesTemEst = mBritEst>0 || mL1Est>0 || mL2Est>0 || mL3Est>0;
 
   const mBritT = mBritBalanca + mBritEst;
@@ -2772,8 +2696,26 @@ function renderRelatorio() {
   const dd = d.slice(8)+'/'+d.slice(5,7)+'/'+d.slice(0,4);
 
   // ── KPIs ──
-  const temDado = !!((R_KPI[linha]||{})[d]);
-  const kpi = (R_KPI[linha]||{})[d] || {hp:0, hs:0, df:0};
+  const _hojeRel = new Date();
+  const _hojeRelStr = _hojeRel.getFullYear()+'-'+String(_hojeRel.getMonth()+1).padStart(2,'0')+'-'+String(_hojeRel.getDate()).padStart(2,'0');
+  // Base da DF: usa último timestamp da planilha para o dia atual
+  function _calcBaseRel(dataStr) {
+    if (dataStr !== _hojeRelStr) return 24;
+    let refH;
+    if (window.ULTIMO_TS_DATE) {
+      const ts = window.ULTIMO_TS_DATE;
+      const tsStr = ts.getFullYear()+'-'+String(ts.getMonth()+1).padStart(2,'0')+'-'+String(ts.getDate()).padStart(2,'0');
+      refH = (tsStr === dataStr) ? (ts.getHours() + ts.getMinutes()/60) : (_hojeRel.getHours() + _hojeRel.getMinutes()/60);
+    } else {
+      refH = _hojeRel.getHours() + _hojeRel.getMinutes()/60;
+    }
+    return Math.max(0.1, +(refH - 7).toFixed(2));
+  }
+  const _baseHRel = _calcBaseRel(d);
+  // Fallback para hoje sem paradas: considera 100% DF com base no tempo decorrido
+  const _kpiRaw = (R_KPI[linha]||{})[d];
+  const temDado = !!_kpiRaw || d === _hojeRelStr;
+  const kpi = _kpiRaw || (d === _hojeRelStr ? {hp:_baseHRel, hs:0, df:100} : {hp:0, hs:0, df:0});
   const kdf = document.getElementById('rKpiDF');
   const khp = document.getElementById('rKpiHP');
   const khs = document.getElementById('rKpiHS');
@@ -2784,17 +2726,13 @@ function renderRelatorio() {
     if(khs) khs.textContent='—';
     const s2=document.getElementById('rKpiHSSub'); if(s2) s2.textContent='Sem dados';
   } else {
-    // Determina base: hoje = tempo decorrido desde 7h; dias passados = 24h
-    const _hoje = new Date();
-    const _hojeStr = _hoje.getFullYear()+'-'+String(_hoje.getMonth()+1).padStart(2,'0')+'-'+String(_hoje.getDate()).padStart(2,'0');
+    // Determina base: hoje = tempo decorrido desde 7h até último dado; dias passados = 24h
     let baseH = 24;
     let baseLbl = 'de 24h totais';
     let dfExibir = kpi.df;
     let hpExibir = kpi.hp;
-    if (d === _hojeStr) {
-      const agora = _hoje.getHours() + _hoje.getMinutes()/60;
-      const inicioTurno = 7;
-      baseH = Math.max(0.1, +(agora - inicioTurno).toFixed(2));
+    if (d === _hojeRelStr) {
+      baseH = _baseHRel;
       hpExibir = +Math.max(0, baseH - kpi.hs).toFixed(1);
       dfExibir = baseH > 0 ? +(hpExibir / baseH * 100).toFixed(1) : 0;
       baseLbl = 'de ' + fmtH(baseH) + ' decorridas (desde 7h)';
@@ -2810,12 +2748,10 @@ function renderRelatorio() {
   // ── KPI Produção do Dia ──
   let prodKg=0, fonteProd='';
   if (typeof PROD_PLANTA !== 'undefined') {
-    const rRes = PROD_PLANTA.resumo.find(r=>r.data===d);
-    if (rRes && (rRes[linha]||0)>0) {
-      prodKg = rRes[linha]; fonteProd='balanca';
-    } else {
-      const pl = (PROD_PLANTA.prod_linha[linha]||{})[d];
-      if (pl && (pl.prod||0)>0) { prodKg=pl.prod*1000; fonteProd='estimada'; }
+    const pe = prodEfetiva(linha, d);
+    if (pe.total > 0) {
+      prodKg    = pe.total;
+      fonteProd = pe.estimando ? 'estimada' : 'balanca';
     }
   }
   const prodEl  = document.getElementById('rKpiProd');
@@ -2949,20 +2885,285 @@ function renderRelatorio() {
 
 
 
-<!-- AUTO_INIT_START -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- AUTO_LOAD: busca planilha.xlsx do mesmo repositório ao abrir -->
 <script>
-document.addEventListener('DOMContentLoaded',function(){
-  if(!R_KPI||!R_KPI.l1||!Object.keys(R_KPI.l1).length)return;
-  ['brit','l1','l2','l3'].forEach(function(k){
-    DADOS[k+'_daily']={};
-    Object.entries(R_KPI[k]||{}).forEach(function(e){DADOS[k+'_daily'][e[0]]={prod:e[1].hp,parada:e[1].hs};});
-    var acc={};
-    Object.values(R_MOT[k]||{}).forEach(function(l){(l||[]).forEach(function(i){acc[i[0]]=(acc[i[0]]||0)+i[1];});});
-    DADOS[k].top_motivos=Object.entries(acc).map(function(e){return[e[0],e[1]];}).sort(function(a,b){return b[1]-a[1];}).slice(0,14);
-  });
-  setTimeout(function(){var b=document.getElementById('btnDash');if(b&&typeof goTab==='function')goTab('dashboard',b);},150);
-});
+(function autoLoad() {
+  if (!window.location.protocol.startsWith('http')) return;
+
+  // Cache-buster: força o Cloudflare/browser a não usar versão cacheada
+  var bust = '?v=' + Math.floor(Date.now() / 60000); // muda a cada minuto
+  fetch('planilha.xlsx' + bust, { cache: 'no-store' })
+    .then(function(r) {
+      if (!r.ok) throw new Error('planilha.xlsx não encontrada (' + r.status + ')');
+      return r.arrayBuffer();
+    })
+    .then(function(buf) {
+      var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      var file = new File([blob], 'planilha.xlsx', { type: blob.type });
+      handleFile(file);
+    })
+    .catch(function(err) {
+      console.info('[autoLoad] ' + err.message + ' — use o botão de upload.');
+    });
+})();
 </script>
-<!-- AUTO_INIT_END -->
 </body>
 </html>
