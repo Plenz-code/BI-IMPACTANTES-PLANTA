@@ -1395,6 +1395,7 @@ function handleFile(f) {
 
       // Rastreia o último timestamp (col A=Data + col B=Hora) de qualquer aba
       let _ultimoTs = null; // { data: Date, label: string }
+      const _ultimoTsPorDia = {}; // 'YYYY-MM-DD' → horas decorridas desde 07:00
 
       // Inicializa estruturas
       const l1_parada={}, l2_parada={}, l3_parada={}, brit_parada={};
@@ -1416,8 +1417,31 @@ function handleFile(f) {
         const hasdata= _has[key];
         if (!_mots[key]) _mots[key] = {};
 
+        // Rastreia o último ultimaData com hora >= 7 para associar linhas de madrugada
+        let _ultimaDataTurno = null;
+
         rows.slice(1).forEach(r => {
           const data = fmtDate(r[0]); if (!data) return;
+
+          // Determina hora da linha para saber se pertence ao noturno do dia anterior
+          const horaColB = r[1];
+          let horaNum = 25; // default = assume hora de dia
+          try {
+            if (typeof horaColB === 'number') horaNum = Math.floor((horaColB % 1) * 24 + 0.0001);
+            else if (horaColB instanceof Date) {
+              const ano = horaColB.getUTCFullYear ? horaColB.getUTCFullYear() : horaColB.getFullYear();
+              horaNum = ano < 2000
+                ? (horaColB.getUTCHours ? horaColB.getUTCHours() : horaColB.getHours())
+                : horaColB.getHours();
+            } else if (typeof horaColB === 'string' && horaColB.includes(':')) {
+              horaNum = parseInt(horaColB.split(':')[0] || 0);
+            }
+          } catch(e) {}
+
+          // Chave real do turno: linhas de 00:00-06:59 pertencem ao dia anterior
+          if (horaNum >= 7) _ultimaDataTurno = data;
+          const chave = (horaNum < 7 && _ultimaDataTurno) ? _ultimaDataTurno : data;
+
           const tipo_parada = cleanStr(r[6]);
           const equip       = cleanStr(r[7]);
           const desc        = cleanStr(r[8]);
@@ -1426,14 +1450,12 @@ function handleFile(f) {
           const prod        = typeof r[5]==='number' ? r[5] : 0;
           const t_parada_mins = toMins(r[11]);
 
-          // Captura timestamp da última linha COM DADO REAL
-          if (conch > 0 || tipo_parada !== '' || t_parada_mins > 0) {
-            const horaColB = r[1];
+          // Captura timestamp da última linha COM DADO REAL: conchadas OU parada registrada
+          if (conch > 0 || t_parada_mins > 0) {
             try {
               let horaMinutos = null;
               if (typeof horaColB === 'number') {
-                const frac = horaColB - Math.floor(horaColB);
-                horaMinutos = Math.round(frac * 24 * 60);
+                horaMinutos = Math.round((horaColB % 1) * 24 * 60);
               } else if (horaColB instanceof Date) {
                 const ano = horaColB.getUTCFullYear ? horaColB.getUTCFullYear() : horaColB.getFullYear();
                 if (ano < 2000) {
@@ -1449,27 +1471,39 @@ function handleFile(f) {
               if (horaMinutos !== null) {
                 const hh = Math.floor(horaMinutos/60), mm = horaMinutos%60;
                 const horaDate = new Date(data + 'T' + String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0') + ':00');
-                if (!isNaN(horaDate) && (!_ultimoTs || horaDate > _ultimoTs.data)) {
-                  _ultimoTs = {
-                    data: horaDate,
-                    label: horaDate.toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})
-                  };
+                if (!isNaN(horaDate)) {
+                  // Para comparação, usa hora-dentro-do-turno: 23:00=16h, 00:00=17h, 3:00=20h
+                  const hTurno = hh >= 7 ? hh - 7 + mm/60 : hh + 17 + mm/60;
+                  const chaveTurno = chave + '_' + hTurno;
+                  if (!_ultimoTs || chave > _ultimoTs.dia || (chave === _ultimoTs.dia && hTurno > _ultimoTs.hTurno)) {
+                    _ultimoTs = {
+                      dia: chave,
+                      hTurno,
+                      data: horaDate,
+                      label: new Date(chave + 'T' + String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0') + ':00')
+                              .toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})
+                    };
+                  }
+                }
+                // Última hora COM DADO REAL desse dia (hora exata da planilha, 0-23)
+                if (!_ultimoTsPorDia[chave] || hh > (_ultimoTsPorDia[chave]||{}).hh) {
+                  _ultimoTsPorDia[chave] = {hh, mm};
                 }
               }
             } catch(e) {}
           }
 
           if (conch > 0 || prod > 0 || tipo_parada || t_parada_mins > 0)
-            hasdata[data] = true;
+            hasdata[chave] = true;
 
-          if (!parada[data]) parada[data] = 0;
-          parada[data] += t_parada_mins;
+          if (!parada[chave]) parada[chave] = 0;
+          parada[chave] += t_parada_mins;
 
           // Registra SOMENTE linhas de início (hi preenchido + tempo > 0)
           if (t_parada_mins > 0 && hi != null && (tipo_parada || equip || desc)) {
             const motivo = [tipo_parada||'', equip||'', desc||''].join(' ∥ ');
-            if (!_mots[key][data]) _mots[key][data] = [];
-            _mots[key][data].push([motivo, t_parada_mins]);
+            if (!_mots[key][chave]) _mots[key][chave] = [];
+            _mots[key][chave].push([motivo, t_parada_mins]);
           }
         });
 
@@ -1477,14 +1511,19 @@ function handleFile(f) {
       });
 
       function buildDaily(parada_map, has_data_map) {
-        // Armazena apenas as horas de parada brutas.
-        // A base (24h para dias passados, base dinâmica para hoje) é calculada no render,
-        // depois que ULTIMO_TS_DATE já está disponível.
         const out = {};
+        // Entre 00:00 e 06:59, o "dia ativo" é o anterior (turno noturno ainda em curso)
+        const _agora = new Date();
+        const _hojeStr = (() => {
+          if (_agora.getHours() < 7) {
+            const d = new Date(_agora); d.setDate(d.getDate()-1);
+            return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+          }
+          return _agora.getFullYear()+'-'+String(_agora.getMonth()+1).padStart(2,'0')+'-'+String(_agora.getDate()).padStart(2,'0');
+        })();
         Object.entries(parada_map).sort().forEach(([d, pm]) => {
           if (!has_data_map[d]) return;
           const hs = +(pm/60).toFixed(1);
-          // prod aqui é placeholder de 24h — render vai recalcular para hoje
           out[d] = { prod: +Math.max(0, 24-hs).toFixed(1), parada: hs };
         });
         return out;
@@ -1656,14 +1695,33 @@ function handleFile(f) {
             const c0 = r[0];
             const data = fmtDate(c0);
             if (data) {
-              // Linha horária. Mudança de data reinicia o ciclo no turno diurno.
-              if (data !== prevData) { turno = 'd'; prevData = data; }
-              ultimaData = data;
+              if (data !== prevData) {
+                // Mudança de data: só reinicia no diurno se a hora da linha for >= 07:00.
+                // Linhas de 00:00-06:59 pertencem ao noturno do dia ANTERIOR — não muda o turno.
+                const hora = r[1]; // col B = hora
+                let horaNum = 25; // default: assume >= 7 se não soubermos
+                if (hora instanceof Date)          horaNum = hora.getHours();
+                else if (typeof hora === 'number') horaNum = Math.floor((hora % 1) * 24 + 0.0001);
+                if (horaNum >= 7) {
+                  turno = 'd';
+                  // Conchadas de 00:00-06:59 devem ir para o dia anterior (ultimaData)
+                  prevData = data;
+                }
+                // Se hora < 7: mantém turno='n' e continua usando ultimaData como chave
+              }
+              // Chave real = data se hora >= 7, senão ultimaData (dia do início do turno)
+              const hora = r[1];
+              let horaNum = 25;
+              if (hora instanceof Date)          horaNum = hora.getHours();
+              else if (typeof hora === 'number') horaNum = Math.floor((hora % 1) * 24 + 0.0001);
+              const chaveData = (horaNum < 7 && ultimaData) ? ultimaData : data;
+              if (horaNum >= 7) ultimaData = data; // só avança ultimaData em hora de dia
+
               const conch = typeof r[4]==='number' ? r[4] : 0;
               const prod  = typeof r[5]==='number' ? r[5] : 0;
               const mat   = cleanStr(r[3]);
-              if (!prodLinha[key][data]) prodLinha[key][data] = {conch:0, prod:0, cd:0, cn:0, pd:0, pn:0};
-              const o = prodLinha[key][data];
+              if (!prodLinha[key][chaveData]) prodLinha[key][chaveData] = {conch:0, prod:0, cd:0, cn:0, pd:0, pn:0};
+              const o = prodLinha[key][chaveData];
               o.conch += conch; o.prod += prod;
               if (turno === 'd') { o.cd += conch; o.pd += prod; }
               else               { o.cn += conch; o.pn += prod; }
@@ -1762,8 +1820,8 @@ function handleFile(f) {
       window.UPLOAD_TS = _ultimoTs
         ? _ultimoTs.label
         : new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-      // Expõe o objeto Date do último timestamp para cálculo correto de DF
       window.ULTIMO_TS_DATE = _ultimoTs ? _ultimoTs.data : null;
+      window.ULTIMO_TS_POR_DIA = _ultimoTsPorDia;
       setStatus(`✅ "${f.name}" — ${nDias} dias (${primeiro} → ${ultimo})`, 's-ok');
       document.getElementById('printBtn').style.display = 'block';
       document.getElementById('imgBtn').style.display   = 'block';
@@ -2088,29 +2146,16 @@ function renderDashProd() {
   setLinha('dpL3',l3R,l3C);
 
   // DF por seção
-  // Base de horas para hoje: usa o ÚLTIMO timestamp da planilha (não hora atual do browser).
-  // Ex: planilha atualizada às 23:00 → base = 23-7 = 16h, mesmo abrindo o BI às 8h do dia seguinte.
   const _hojeDP = new Date();
   const _hojeDPStr = _hojeDP.getFullYear()+'-'+String(_hojeDP.getMonth()+1).padStart(2,'0')+'-'+String(_hojeDP.getDate()).padStart(2,'0');
-  // Para o dia selecionado: se é hoje, usa min(hora_ultimo_dado_planilha, hora_atual); senão 24h
+
+  // Base da DF = horas desde 07:00 até o último registro com dado real.
+  // Hora >= 7: base = hora - 7. Hora < 7 (madrugada): base = hora + 17.
   function _calcBase(dataStr) {
-    if (dataStr !== _hojeDPStr) return 24;
-    // Usa o timestamp do último dado da planilha para a data de hoje
-    let refH;
-    if (window.ULTIMO_TS_DATE) {
-      const ts = window.ULTIMO_TS_DATE;
-      const tsDataStr = ts.getFullYear()+'-'+String(ts.getMonth()+1).padStart(2,'0')+'-'+String(ts.getDate()).padStart(2,'0');
-      if (tsDataStr === dataStr) {
-        // Último dado é de hoje: usa essa hora como base
-        refH = ts.getHours() + ts.getMinutes()/60;
-      } else {
-        // Último dado é de outro dia: usa hora atual
-        refH = _hojeDP.getHours() + _hojeDP.getMinutes()/60;
-      }
-    } else {
-      refH = _hojeDP.getHours() + _hojeDP.getMinutes()/60;
-    }
-    return Math.max(0.1, +(refH - 7).toFixed(2));
+    const t = window.ULTIMO_TS_POR_DIA ? window.ULTIMO_TS_POR_DIA[dataStr] : null;
+    if (!t) return 24;
+    const horas = t.hh >= 7 ? (t.hh - 7 + t.mm/60) : (t.hh + 17 + t.mm/60);
+    return Math.min(24, Math.max(0.5, horas));
   }
   const _baseHDP = _calcBase(data);
 
@@ -2127,10 +2172,11 @@ function renderDashProd() {
       if(dfEl) dfEl.textContent='—'; if(hpEl) hpEl.textContent=''; if(hsEl) hsEl.textContent='';
       return;
     }
-    // Recalcula DF com base real se for hoje
+    // Recalcula DF com base real do turno (aplica para qualquer dia com turno em andamento)
     const hsReal  = kpi.hs;
-    const hpReal  = data === _hojeDPStr ? +Math.max(0, _baseHDP - hsReal).toFixed(1) : kpi.hp;
-    const dfReal  = data === _hojeDPStr ? +(hpReal / _baseHDP * 100).toFixed(1) : kpi.df;
+    const base    = _calcBase(data);
+    const hpReal  = +Math.max(0, base - hsReal).toFixed(1);
+    const dfReal  = base > 0 ? +(hpReal / base * 100).toFixed(1) : kpi.df;
     const cor = dfReal>=85?'#4caf50':dfReal>=60?'#ffc107':'#f44336';
     if(dfEl){ dfEl.textContent=dfReal.toFixed(1)+'%'; dfEl.style.color=cor; }
     if(hpEl) hpEl.textContent=fmtH(hpReal)+' prod';
@@ -2698,18 +2744,11 @@ function renderRelatorio() {
   // ── KPIs ──
   const _hojeRel = new Date();
   const _hojeRelStr = _hojeRel.getFullYear()+'-'+String(_hojeRel.getMonth()+1).padStart(2,'0')+'-'+String(_hojeRel.getDate()).padStart(2,'0');
-  // Base da DF: usa último timestamp da planilha para o dia atual
   function _calcBaseRel(dataStr) {
-    if (dataStr !== _hojeRelStr) return 24;
-    let refH;
-    if (window.ULTIMO_TS_DATE) {
-      const ts = window.ULTIMO_TS_DATE;
-      const tsStr = ts.getFullYear()+'-'+String(ts.getMonth()+1).padStart(2,'0')+'-'+String(ts.getDate()).padStart(2,'0');
-      refH = (tsStr === dataStr) ? (ts.getHours() + ts.getMinutes()/60) : (_hojeRel.getHours() + _hojeRel.getMinutes()/60);
-    } else {
-      refH = _hojeRel.getHours() + _hojeRel.getMinutes()/60;
-    }
-    return Math.max(0.1, +(refH - 7).toFixed(2));
+    const t = window.ULTIMO_TS_POR_DIA ? window.ULTIMO_TS_POR_DIA[dataStr] : null;
+    if (!t) return 24;
+    const horas = t.hh >= 7 ? (t.hh - 7 + t.mm/60) : (t.hh + 17 + t.mm/60);
+    return Math.min(24, Math.max(0.5, horas));
   }
   const _baseHRel = _calcBaseRel(d);
   // Fallback para hoje sem paradas: considera 100% DF com base no tempo decorrido
@@ -2726,17 +2765,11 @@ function renderRelatorio() {
     if(khs) khs.textContent='—';
     const s2=document.getElementById('rKpiHSSub'); if(s2) s2.textContent='Sem dados';
   } else {
-    // Determina base: hoje = tempo decorrido desde 7h até último dado; dias passados = 24h
-    let baseH = 24;
-    let baseLbl = 'de 24h totais';
-    let dfExibir = kpi.df;
-    let hpExibir = kpi.hp;
-    if (d === _hojeRelStr) {
-      baseH = _baseHRel;
-      hpExibir = +Math.max(0, baseH - kpi.hs).toFixed(1);
-      dfExibir = baseH > 0 ? +(hpExibir / baseH * 100).toFixed(1) : 0;
-      baseLbl = 'de ' + fmtH(baseH) + ' decorridas (desde 7h)';
-    }
+    // Sempre recalcula com _calcBaseRel: retorna base dinâmica para turno ativo, 24h para dias encerrados
+    let baseH    = _calcBaseRel(d);
+    let baseLbl  = baseH < 23.9 ? 'de ' + fmtH(baseH) + ' decorridas (desde 7h)' : 'de 24h totais';
+    let hpExibir = +Math.max(0, baseH - kpi.hs).toFixed(1);
+    let dfExibir = baseH > 0 ? +(hpExibir / baseH * 100).toFixed(1) : kpi.df;
     const dfCor = dfExibir>=85?'#4caf50':dfExibir>=60?'#ffc107':'#f44336';
     if(kdf){ kdf.textContent=dfExibir.toFixed(1)+'%'; kdf.style.color=dfCor; }
     if(khp) khp.textContent = fmtH(hpExibir);
