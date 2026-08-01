@@ -7,7 +7,7 @@ on:
     paths:
       - 'planilha.xlsx'
   schedule:
-    - cron: '0 */2 * * *'
+    - cron: '0 */6 * * *'  # rede de seguranca — gatilho principal e o repository_dispatch
   workflow_dispatch:
 
 jobs:
@@ -17,6 +17,9 @@ jobs:
       contents: write
 
     steps:
+      - name: Mostrar qual gatilho disparou esta execucao
+        run: echo "Disparado por -> ${{ github.event_name }}"
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -42,6 +45,6 @@ jobs:
             echo "Planilha sem mudanças — nada a commitar."
           else
             TIMESTAMP=$(date -u '+%d/%m/%Y %H:%M UTC')
-            git commit -m "planilha atualizada - ${TIMESTAMP}"
+            git commit -m "planilha atualizada - ${TIMESTAMP} (via ${{ github.event_name }})"
             git push
           fi
