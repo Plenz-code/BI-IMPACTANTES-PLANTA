@@ -51,7 +51,7 @@ if DROPBOX_URL:
                 "Verifique se o link termina com '?dl=1' e se ainda e valido "
                 "(links podem mudar se a pasta compartilhada for alterada)."
             )
-        if len(data) < 10000:
+        if len(data) < 30000:
             raise Exception(f"Arquivo muito pequeno ({len(data)} bytes) — pode estar corrompido ou vazio")
 
         with open(XLSX_FILE, 'wb') as f:
@@ -70,10 +70,27 @@ else:
         sys.exit(1)
 
 # ── 2. VALIDAR ────────────────────────────────────────────────────────────────
+# Um .xlsx valido com dados reais tem, no minimo, algumas dezenas de KB
+# (arquivos de ~200-300 bytes passam no teste de ZIP mas estao vazios/quebrados).
+TAMANHO_MINIMO_KB = 30
+
 try:
+    tamanho_kb = os.path.getsize(XLSX_FILE) / 1024
     with zipfile.ZipFile(XLSX_FILE, 'r') as z:
         z.testzip()
-    print(f"✓ planilha.xlsx válida ({os.path.getsize(XLSX_FILE)//1024} KB)")
+        nomes = z.namelist()
+        tem_planilhas = any('xl/worksheets/' in n for n in nomes)
+
+    if tamanho_kb < TAMANHO_MINIMO_KB:
+        raise Exception(
+            f"Arquivo suspeito: apenas {tamanho_kb:.1f} KB "
+            f"(minimo esperado: {TAMANHO_MINIMO_KB} KB). "
+            f"Provavelmente veio vazio ou truncado do Dropbox."
+        )
+    if not tem_planilhas:
+        raise Exception("Arquivo e um ZIP valido mas nao contem planilhas (xl/worksheets/ ausente).")
+
+    print(f"✓ planilha.xlsx válida ({tamanho_kb:.0f} KB, {len(nomes)} arquivos internos)")
 except Exception as e:
     print(f"Arquivo inválido: {e}")
     sys.exit(1)
