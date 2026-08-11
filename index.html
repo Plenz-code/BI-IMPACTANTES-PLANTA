@@ -1451,8 +1451,11 @@ function handleFile(f) {
           const prod        = typeof r[6]==='number' ? r[6] : 0;  // col G
           const t_parada_mins = toMins(r[12]);  // col M
 
-          // Captura timestamp da última linha COM DADO REAL: conchadas OU parada registrada
-          if (conch > 0 || t_parada_mins > 0) {
+          // Captura timestamp da última linha COM DADO REAL: só conchadas > 0.
+          // Paradas ficam num slot horário fixo (ex: 15:00) mas o horário real
+          // do evento está em Horário Inicial/Final — usar essa linha para o
+          // "último update" geraria um timestamp futuro/impossível.
+          if (conch > 0) {
             try {
               let horaMinutos = null;
               if (typeof horaColB === 'number') {
