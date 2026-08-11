@@ -2055,24 +2055,25 @@ function renderProducao()    { resetDashProd(); }  // sempre vai para o último 
 
 // ── prodEfetiva — escopo global ──────────────────────────────────────────────
 // Retorna a produção "ao vivo" de uma linha para um dia, turno a turno:
-//   • Turno sem balança → estimativa = conch × fator
-//   • Turno com balança → valor real
+//   • Turno sem balança → usa a coluna "Produção" já calculada pela planilha
+//     (fórmula por Pá Carregadeira: PC17×4,2 / PC19×5 / CB×24 t/conchada)
+//   • Turno com balança → valor real da balança
 //   • Total = diurno + noturno  (nunca descarta um turno pelo outro)
-const FATOR_EST_GLOBAL      = 4; // moagens
-const FATOR_EST_BRIT_GLOBAL = 5; // britador
 function prodEfetiva(key, d) {
   if (typeof PROD_PLANTA === 'undefined') return {total:0, pD:0, pN:0, dClosed:false, nClosed:false, estimando:false, conch:0};
-  const fator  = key === 'brit' ? FATOR_EST_BRIT_GLOBAL : FATOR_EST_GLOBAL;
   const b      = (PROD_PLANTA.balanca && PROD_PLANTA.balanca[key])
                   ? (PROD_PLANTA.balanca[key][d] || null) : null;
   const pl     = (PROD_PLANTA.prod_linha[key] || {})[d] || {};
   const cd     = pl.cd != null ? pl.cd : (pl.conch || 0);
   const cn     = pl.cn != null ? pl.cn : 0;
+  // Produção já calculada pela planilha (coluna G), soma por turno, em toneladas
+  const prodD  = (pl.pd || 0) * 1000; // t → escala kg (fmtT divide por 1000)
+  const prodN  = (pl.pn || 0) * 1000;
   let pD, pN, dClosed, nClosed;
   if (b) {
     dClosed = !!b.dClosed; nClosed = !!b.nClosed;
-    pD = dClosed ? (b.d || 0) : cd * fator * 1000;
-    pN = nClosed ? (b.n || 0) : cn * fator * 1000;
+    pD = dClosed ? (b.d || 0) : prodD;
+    pN = nClosed ? (b.n || 0) : prodN;
   } else {
     const rr  = PROD_PLANTA.resumo.find(r => r.data === d);
     const fig = rr ? (rr[key] || 0) : 0;
@@ -2106,10 +2107,8 @@ function renderDashProd() {
   const rDia = PROD_PLANTA.resumo.find(r => r.data === data);
 
   // ── PRODUÇÃO POR TURNO — usa prodEfetiva() global ──────────────────────────
-  // Cada turno: balança se fechou, estimativa (conch×fator) se ainda aberto.
+  // Cada turno: balança se fechou, senão usa a Produção já calculada pela planilha.
   // Total do dia = diurno + noturno, sempre somados.
-  const FATOR_EST      = FATOR_EST_GLOBAL;
-  const FATOR_EST_BRIT = FATOR_EST_BRIT_GLOBAL;
 
   const britR = prodEfetiva('brit',data), l1R = prodEfetiva('l1',data), l2R = prodEfetiva('l2',data), l3R = prodEfetiva('l3',data);
   const britC = britR.conch, l1C = l1R.conch, l2C = l2R.conch, l3C = l3R.conch;
