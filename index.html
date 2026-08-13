@@ -324,6 +324,7 @@ body { background: #0f1117; color: #f0f0f0; font-family: 'Segoe UI', Arial, sans
     <button class="tab-btn" id="btnDiario" onclick="goTab('diario',this)">📅 Visualização Diária</button>
     <button class="tab-btn" id="btnRelat" onclick="goTab('relatorio',this)">📈 Relatório do Dia</button>
     <button class="tab-btn" id="btnFiltro" onclick="goTab('filtro',this)">🔍 Filtro de Impactantes</button>
+    <button class="tab-btn" id="btnOuro" onclick="goTab('ouro',this)">🥇 Ouro Previsto</button>
   </div>
 </div>
 
@@ -563,6 +564,7 @@ body { background: #0f1117; color: #f0f0f0; font-family: 'Segoe UI', Arial, sans
           <div style="font-size:11px;font-weight:700;margin-top:4px" id="dpDFL1">—</div>
           <div style="font-size:11px;color:#aaa" id="dpHPL1"></div>
           <div style="font-size:11px;color:#f44336" id="dpHSL1"></div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px" id="dpL1Mat"></div>
           <div id="dpL1Aviso"></div>
         </div>
         <div class="kpi-card" style="--cor:#9b59b6">
@@ -572,6 +574,7 @@ body { background: #0f1117; color: #f0f0f0; font-family: 'Segoe UI', Arial, sans
           <div style="font-size:11px;font-weight:700;margin-top:4px" id="dpDFL2">—</div>
           <div style="font-size:11px;color:#aaa" id="dpHPL2"></div>
           <div style="font-size:11px;color:#f44336" id="dpHSL2"></div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px" id="dpL2Mat"></div>
           <div id="dpL2Aviso"></div>
         </div>
         <div class="kpi-card" style="--cor:#4caf50">
@@ -581,6 +584,7 @@ body { background: #0f1117; color: #f0f0f0; font-family: 'Segoe UI', Arial, sans
           <div style="font-size:11px;font-weight:700;margin-top:4px" id="dpDFL3">—</div>
           <div style="font-size:11px;color:#aaa" id="dpHPL3"></div>
           <div style="font-size:11px;color:#f44336" id="dpHSL3"></div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px" id="dpL3Mat"></div>
           <div id="dpL3Aviso"></div>
         </div>
       </div>
@@ -591,6 +595,28 @@ body { background: #0f1117; color: #f0f0f0; font-family: 'Segoe UI', Arial, sans
       <div class="chart-title">Mix Moagem — Dia</div>
       <div style="position:relative;width:clamp(110px,35vw,160px);height:clamp(110px,35vw,160px);margin:4px auto"><canvas id="dpPieDia"></canvas></div>
       <div id="dpPieDiaLegend" style="font-size:11px;color:#e8e8e8;margin-top:6px;text-align:center;line-height:1.8"></div>
+    </div>
+  </div>
+
+  <!-- Resumo Ouro — abaixo da Moagem, refletindo a mesma data selecionada acima -->
+  <div class="chart-card" style="margin-bottom:10px">
+    <div class="chart-title">🥇 Ouro Previsto — Dia</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:6px" class="dp-ouro-inner">
+      <div class="kpi-card" style="--cor:#e8b923">
+        <div class="kpi-label">Ouro Previsto</div>
+        <div class="kpi-value" id="dpOuroDia" style="color:#e8b923">—</div>
+        <div class="kpi-sub" id="dpOuroDiaSub"></div>
+      </div>
+      <div class="kpi-card" style="--cor:#4a90d9">
+        <div class="kpi-label">Teor Médio de Entrada</div>
+        <div class="kpi-value" id="dpOuroTeor" style="color:#4a90d9;font-size:18px">—</div>
+        <div class="kpi-sub">ponderado por conchada</div>
+      </div>
+      <div class="kpi-card" style="--cor:#4caf50">
+        <div class="kpi-label">Recuperação Média</div>
+        <div class="kpi-value" id="dpOuroRecup" style="color:#4caf50;font-size:18px">—</div>
+        <div class="kpi-sub">ponderado por conchada</div>
+      </div>
     </div>
   </div>
 
@@ -824,6 +850,97 @@ body { background: #0f1117; color: #f0f0f0; font-family: 'Segoe UI', Arial, sans
   <div class="footer">🏭 Planta de Beneficiamento Santa Felicidade &nbsp;|&nbsp; Filtro de Impactantes &nbsp;|&nbsp; Ago/2026</div>
 </div>
 
+<!-- OURO PREVISTO — aba nova, isolada das demais -->
+<div class="tab-content" id="tab-ouro">
+  <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;background:#131620;border:1px solid #252838;border-radius:6px;padding:10px 16px;margin-bottom:10px">
+    <div class="filtro-group">
+      <label>Data</label>
+      <input type="date" id="ouData" onchange="renderOuro()">
+    </div>
+    <div style="align-self:flex-end;font-size:12px;color:#e8b923;font-weight:700" id="ouInfo"></div>
+    <button class="filtro-reset" onclick="resetOuro()">↺ Último dia</button>
+    <div style="width:1px;align-self:stretch;background:#252838;margin:0 4px"></div>
+    <div class="filtro-group">
+      <label>Data Início</label>
+      <input type="date" id="ouIni" onchange="renderOuro()">
+    </div>
+    <div class="filtro-group">
+      <label>Data Fim</label>
+      <input type="date" id="ouFim" onchange="renderOuro()">
+    </div>
+    <span style="align-self:flex-end;font-size:11px;color:#666">período do histórico e das pizzas</span>
+  </div>
+
+  <!-- KPIs -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px" class="ou-kpi-grid">
+    <div class="kpi-card" style="--cor:#e8b923">
+      <div class="kpi-label">Ouro Previsto — Dia</div>
+      <div class="kpi-value" id="ouKpiDia" style="color:#e8b923">—</div>
+      <div class="kpi-sub" id="ouKpiDiaSub"></div>
+    </div>
+    <div class="kpi-card" style="--cor:#e8b923">
+      <div class="kpi-label">Ouro Acumulado — Período</div>
+      <div class="kpi-value" id="ouKpiMes" style="color:#e8b923">—</div>
+      <div class="kpi-sub" id="ouKpiMesSub"></div>
+    </div>
+    <div class="kpi-card" style="--cor:#4a90d9">
+      <div class="kpi-label">Teor Médio de Entrada — Dia</div>
+      <div class="kpi-value" id="ouKpiTeor" style="color:#4a90d9;font-size:20px">—</div>
+      <div class="kpi-sub">ponderado por conchada</div>
+    </div>
+    <div class="kpi-card" style="--cor:#4caf50">
+      <div class="kpi-label">Recuperação Média — Dia</div>
+      <div class="kpi-value" id="ouKpiRecup" style="color:#4caf50;font-size:20px">—</div>
+      <div class="kpi-sub">ponderado por conchada</div>
+    </div>
+  </div>
+
+  <!-- KPIs — Realizado x Previsto (lançamento manual na aba Resumo) -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px" class="ou-kpi-grid2">
+    <div class="kpi-card" style="--cor:#ff9800">
+      <div class="kpi-label">Ouro Realizado — Dia</div>
+      <div class="kpi-value" id="ouKpiRealizado" style="color:#ff9800">—</div>
+      <div class="kpi-sub" id="ouKpiRealizadoSub"></div>
+    </div>
+    <div class="kpi-card" style="--cor:#26a69a">
+      <div class="kpi-label">Aderência — Dia</div>
+      <div class="kpi-value" id="ouKpiAderDia" style="color:#26a69a">—</div>
+      <div class="kpi-sub"></div>
+    </div>
+    <div class="kpi-card" style="--cor:#26a69a">
+      <div class="kpi-label">Aderência — Período</div>
+      <div class="kpi-value" id="ouKpiAderMes" style="color:#26a69a">—</div>
+      <div class="kpi-sub" id="ouKpiAderMesSub"></div>
+    </div>
+  </div>
+
+  <!-- Hora a hora -->
+  <div class="chart-card" style="margin-bottom:10px">
+    <div class="chart-title">🥇 Ouro Previsto — Hora a Hora (por Material)</div>
+    <div style="height:280px"><canvas id="ouHoraChart"></canvas></div>
+  </div>
+
+  <!-- Histórico mensal + Pizzas -->
+  <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:10px" class="ou-bottom-grid">
+    <div class="chart-card">
+      <div class="chart-title">📈 Histórico Diário — Ouro Acumulado (Período)</div>
+      <div style="height:260px"><canvas id="ouHistChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">🧪 Material — % do Dia</div>
+      <div style="height:180px"><canvas id="ouPieDia"></canvas></div>
+      <div id="ouPieDiaLegend" style="margin-top:8px;font-size:12px;line-height:1.8"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">🧪 Material — % do Período</div>
+      <div style="height:180px"><canvas id="ouPieMes"></canvas></div>
+      <div id="ouPieMesLegend" style="margin-top:8px;font-size:12px;line-height:1.8"></div>
+    </div>
+  </div>
+
+  <div class="footer">🏭 Planta de Beneficiamento Santa Felicidade &nbsp;|&nbsp; Ouro Previsto &nbsp;|&nbsp; Ago/2026</div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <button class="img-btn"  id="imgBtn"   onclick="gerarImagem()">📷 Salvar Imagem</button>
 <button class="print-btn" id="printBtn" onclick="abrirModalPDF()">🖨 Gerar PDF</button>
@@ -867,7 +984,7 @@ function goTab(name, btn) {
   else {
     // Garante que o botão certo fica ativo mesmo sem referência direta
     const btnMap = {upload:'btnUpload',producao:'btnProducao',dashboard:'btnDash',
-                    diario:'btnDiario',relatorio:'btnRelat',filtro:'btnFiltro'};
+                    diario:'btnDiario',relatorio:'btnRelat',filtro:'btnFiltro',ouro:'btnOuro'};
     const b = document.getElementById(btnMap[name]);
     if(b) b.classList.add('active');
   }
@@ -876,6 +993,7 @@ function goTab(name, btn) {
   if(name==='relatorio') initRelatorio();
   if(name==='producao')  renderProducao();
   if(name==='filtro')    initFiltro();
+  if(name==='ouro')      resetOuro();
 }
 
 /* ── Seção ── */
@@ -1393,6 +1511,21 @@ function handleFile(f) {
         'Linha 3':   'l3',
       };
 
+      // Mapa de colunas por aba — Britador manteve o layout antigo,
+      // Linha 1/2/3 ganharam 5 colunas novas (Teor, Ponderamento, Recuperação, Ouro hora, Ouro total)
+      // que deslocam tudo a partir da coluna F.
+      const COLS_BRIT = {
+        pa:4, conch:5, prod:6, tipo_parada:7, equip:8, desc:9,
+        hi:10, hf:11, tparada:12, obs:13, bal:14,
+        teor:null, balPond:null, recup:null, ouroH:null, ouroTot:null
+      };
+      const COLS_LINHA = {
+        pa:4, teor:5, conch:6, balPond:7, recup:8, ouroH:9, prod:10,
+        tipo_parada:11, equip:12, desc:13, hi:14, hf:15, tparada:16, obs:17,
+        bal:18, ouroTot:19
+      };
+      const COLS = { brit: COLS_BRIT, l1: COLS_LINHA, l2: COLS_LINHA, l3: COLS_LINHA };
+
       // Rastreia o último timestamp (col A=Data + col B=Hora) de qualquer aba
       let _ultimoTs = null; // { data: Date, label: string }
       const _ultimoTsPorDia = {}; // 'YYYY-MM-DD' → horas decorridas desde 07:00
@@ -1442,14 +1575,15 @@ function handleFile(f) {
           if (horaNum >= 7) _ultimaDataTurno = data;
           const chave = (horaNum < 7 && _ultimaDataTurno) ? _ultimaDataTurno : data;
 
-          const tipo_parada = cleanStr(r[7]);  // col H
-          const equip       = cleanStr(r[8]);  // col I
-          const desc        = cleanStr(r[9]);  // col J
-          const hi          = r[10];  // col K = Horário Inicial (nova col E=Pá deslocou tudo)
-          const pa_carregadeira = cleanStr(r[4]); // col E = Pá Carregadeira (nova)
-          const conch       = typeof r[5]==='number' ? r[5] : 0;  // col F
-          const prod        = typeof r[6]==='number' ? r[6] : 0;  // col G
-          const t_parada_mins = toMins(r[12]);  // col M
+          const C = COLS[key];
+          const tipo_parada = cleanStr(r[C.tipo_parada]);
+          const equip       = cleanStr(r[C.equip]);
+          const desc        = cleanStr(r[C.desc]);
+          const hi          = r[C.hi];
+          const pa_carregadeira = cleanStr(r[C.pa]);
+          const conch       = typeof r[C.conch]==='number' ? r[C.conch] : 0;
+          const prod        = typeof r[C.prod]==='number' ? r[C.prod] : 0;
+          const t_parada_mins = toMins(r[C.tparada]);
 
           // Captura timestamp da última linha COM DADO REAL: só conchadas > 0.
           // Paradas ficam num slot horário fixo (ex: 15:00) mas o horário real
@@ -1688,13 +1822,25 @@ function handleFile(f) {
         const SEC = {Britador:'brit','Linha 1':'l1','Linha 2':'l2','Linha 3':'l3'};
         // balanca[key][data] = {d,n,dClosed,nClosed} — balança POR TURNO
         const balanca   = {brit:{}, l1:{}, l2:{}, l3:{}};
-        // prodLinha[key][data] = {conch,prod,cd,cn,pd,pn} — conchadas/produção por turno
+        // prodLinha[key][data] = {conch,prod,cd,cn,pd,pn,og,on,teorSoma,recupSoma} — por turno
         const prodLinha = {brit:{}, l1:{}, l2:{}, l3:{}};
         const matTot    = {brit:{}, l1:{}, l2:{}, l3:{}};
+        // matDia[key][data][mat] = conchadas daquele material naquele dia (p/ pizza diária/mensal)
+        const matDia    = {brit:{}, l1:{}, l2:{}, l3:{}};
+        // ouro[key][data] = {d,n,dClosed,nClosed} — Ouro previsto (col T) POR TURNO, espelha balanca
+        const ouro      = {brit:{}, l1:{}, l2:{}, l3:{}};
+
+        // ouroHora[key][data] = [{h, mat, ouro}] — granularidade hora-a-hora p/ gráfico
+        const ouroHora  = {brit:{}, l1:{}, l2:{}, l3:{}};
+
+        // ouroResumo[data] = {previsto, realizado} — planta inteira, colunas H/I da aba Resumo
+        // (Ouro Realizado só existe aqui: é medido/lançado manualmente, não estimado por conchada)
+        const ouroResumo = {};
 
         Object.entries(SEC).forEach(([sheetName, key]) => {
           const ws = wb.Sheets[sheetName];
           if (!ws) return;
+          const C = COLS[key];
           const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
           let ultimaData = null, prevData = null, turno = 'd'; // 'd'=diurno, 'n'=noturno
           rows.forEach(r => {
@@ -1723,31 +1869,61 @@ function handleFile(f) {
               const chaveData = (horaNum < 7 && ultimaData) ? ultimaData : data;
               if (horaNum >= 7) ultimaData = data; // só avança ultimaData em hora de dia
 
-              const conch = typeof r[5]==='number' ? r[5] : 0;
-              const prod  = typeof r[6]==='number' ? r[6] : 0;
+              const conch = typeof r[C.conch]==='number' ? r[C.conch] : 0;
+              const prod  = typeof r[C.prod]==='number'  ? r[C.prod]  : 0;
               const mat   = cleanStr(r[3]);
-              if (!prodLinha[key][chaveData]) prodLinha[key][chaveData] = {conch:0, prod:0, cd:0, cn:0, pd:0, pn:0};
+              const teor  = C.teor  != null && typeof r[C.teor]  === 'number' ? r[C.teor]  : null;
+              const recup = C.recup != null && typeof r[C.recup] === 'number' ? r[C.recup] : null;
+              const ouroH = C.ouroH != null && typeof r[C.ouroH] === 'number' ? r[C.ouroH] : 0;
+
+              if (ouroH > 0) {
+                if (!ouroHora[key][chaveData]) ouroHora[key][chaveData] = [];
+                ouroHora[key][chaveData].push({ h: horaNum, mat: mat || 'N/D', ouro: ouroH });
+              }
+
+              if (!prodLinha[key][chaveData]) {
+                prodLinha[key][chaveData] = {
+                  conch:0, prod:0, cd:0, cn:0, pd:0, pn:0,
+                  og:0, on:0,                         // ouro previsto hora-a-hora, diurno/noturno
+                  teorSoma:0, teorPeso:0,              // p/ média ponderada de teor
+                  recupSoma:0, recupPeso:0             // p/ média ponderada de recuperação
+                };
+              }
               const o = prodLinha[key][chaveData];
               o.conch += conch; o.prod += prod;
-              if (turno === 'd') { o.cd += conch; o.pd += prod; }
-              else               { o.cn += conch; o.pn += prod; }
-              if (mat && conch>0) matTot[key][mat] = (matTot[key][mat]||0) + conch;
+              if (turno === 'd') { o.cd += conch; o.pd += prod; o.og += ouroH; }
+              else               { o.cn += conch; o.pn += prod; o.on += ouroH; }
+              if (teor  != null && conch > 0) { o.teorSoma  += teor  * conch; o.teorPeso  += conch; }
+              if (recup != null && conch > 0) { o.recupSoma += recup * conch; o.recupPeso += conch; }
+              if (mat && conch>0) {
+                matTot[key][mat] = (matTot[key][mat]||0) + conch;
+                if (!matDia[key][chaveData]) matDia[key][chaveData] = {};
+                matDia[key][chaveData][mat] = (matDia[key][chaveData][mat]||0) + conch;
+              }
             } else if (typeof c0 === 'string') {
               const cu  = c0.toUpperCase();
               // Balança só existe se o valor for um número positivo.
               // bal=0 ou null = turno ainda aberto (a linha existe mas sem lançamento).
-              const balRaw = r[14];  // col O = Totalizador da Balança
+              const balRaw = r[C.bal];
               const bal = typeof balRaw === 'number' && balRaw > 0 ? balRaw : 0;
               const balFechada = bal > 0;
+              // Ouro total do turno (col T, só existe em Linha 1/2/3)
+              const ouroRaw = C.ouroTot != null ? r[C.ouroTot] : null;
+              const ouroTotTurno = typeof ouroRaw === 'number' && ouroRaw > 0 ? ouroRaw : 0;
+              const ouroFechado  = ouroTotTurno > 0;
               if (cu.indexOf('TURNO') >= 0 && ultimaData) {
                 if (!balanca[key][ultimaData]) balanca[key][ultimaData] = {d:0,n:0,dClosed:false,nClosed:false};
+                if (!ouro[key][ultimaData])    ouro[key][ultimaData]    = {d:0,n:0,dClosed:false,nClosed:false};
                 const b = balanca[key][ultimaData];
+                const o = ouro[key][ultimaData];
                 // Só fecha o turno se houver valor de balança lançado (bal > 0)
                 if (cu.indexOf('DIURNO') >= 0) {
-                  if (balFechada) { b.d = bal; b.dClosed = true; }
+                  if (balFechada)  { b.d = bal; b.dClosed = true; }
+                  if (ouroFechado) { o.d = ouroTotTurno; o.dClosed = true; }
                   turno = 'n'; // sempre muda para noturno após linha de TURNO DIURNO
                 } else if (cu.indexOf('NOTURNO') >= 0) {
-                  if (balFechada) { b.n = bal; b.nClosed = true; }
+                  if (balFechada)  { b.n = bal; b.nClosed = true; }
+                  if (ouroFechado) { o.n = ouroTotTurno; o.nClosed = true; }
                 }
               } else if (cu.indexOf('TOTAL GLOBAL') >= 0) {
                 turno = 'd'; // próximo dia recomeça no diurno
@@ -1769,6 +1945,12 @@ function handleFile(f) {
               const num = typeof v==='number' ? v : 0;
               if (num>0 && !balanca[key][data]) balanca[key][data] = {d:num, n:0, dClosed:true, nClosed:true};
             });
+            // Ouro Previsto (col H, idx7) e Ouro Realizado (col I, idx8) — plantwide, lançamento manual
+            const ouroPrevisto  = typeof r[7]==='number' ? r[7] : 0;
+            const ouroRealizado = typeof r[8]==='number' ? r[8] : 0;
+            if (ouroPrevisto > 0 || ouroRealizado > 0) {
+              ouroResumo[data] = { previsto: ouroPrevisto, realizado: ouroRealizado };
+            }
           });
         }
 
@@ -1794,7 +1976,7 @@ function handleFile(f) {
                    brit:b, l1:v1, l2:v2, l3:v3, total: v1+v2+v3 };
         });
 
-        PROD_PLANTA = { resumo, prod_linha: prodLinha, material_tot: matTot, balanca };
+        PROD_PLANTA = { resumo, prod_linha: prodLinha, material_tot: matTot, material_dia: matDia, balanca, ouro, ouro_hora: ouroHora, ouro_resumo: ouroResumo };
       })();
 
       // Atualiza datas disponíveis no seletor do relatório
@@ -2020,7 +2202,7 @@ let R_MOT = { brit:{}, l1:{}, l2:{}, l3:{} };
 
 let R_KPI = { brit:{}, l1:{}, l2:{}, l3:{} };
 
-let PROD_PLANTA = {resumo:[], prod_linha:{brit:{},l1:{},l2:{},l3:{}}, material_tot:{brit:{},l1:{},l2:{},l3:{}}, balanca:{brit:{},l1:{},l2:{},l3:{}}};
+let PROD_PLANTA = {resumo:[], prod_linha:{brit:{},l1:{},l2:{},l3:{}}, material_tot:{brit:{},l1:{},l2:{},l3:{}}, material_dia:{brit:{},l1:{},l2:{},l3:{}}, balanca:{brit:{},l1:{},l2:{},l3:{}}, ouro:{brit:{},l1:{},l2:{},l3:{}}, ouro_hora:{brit:{},l1:{},l2:{},l3:{}}, ouro_resumo:{}};
 
 /* ══════════════════════════════════════════════════════════════
    DASHBOARD PRODUÇÃO — Diário + Mensal + Impactantes
@@ -2032,6 +2214,295 @@ function fmtT(kg) {
   return t.toLocaleString('pt-BR', {minimumFractionDigits:1, maximumFractionDigits:1}) + ' t';
 }
 function kgToT(kg) { return kg / 1000; }
+
+// ══════════════════════════════════════════════════════════════
+// COR DE MATERIAL — global e consistente em toda a página
+// (mesmo material = mesma cor no Dashboard, nas Linhas e na aba Ouro)
+// ══════════════════════════════════════════════════════════════
+const MAT_PALETA = ['#ffc107','#f44336','#4a90d9','#26a69a','#ff7043','#78909c','#9b59b6','#8bc34a','#e91e63','#00bcd4'];
+const _matColorCache = {};
+function corMaterial(mat) {
+  if (!mat) return '#888';
+  if (!(mat in _matColorCache)) {
+    let hash = 0;
+    for (let i=0;i<mat.length;i++) hash = (hash*31 + mat.charCodeAt(i)) >>> 0;
+    _matColorCache[mat] = MAT_PALETA[hash % MAT_PALETA.length];
+  }
+  return _matColorCache[mat];
+}
+// Monta "chips" coloridos de material (nome + quantidade), para uso em qualquer card
+function matChipsHTML(md) {
+  const entries = Object.entries(md||{}).sort((a,b)=>b[1]-a[1]);
+  if (!entries.length) return '';
+  const total = entries.reduce((a,[,v])=>a+v, 0);
+  if (total <= 0) return '';
+  return entries.map(([mat,v]) => {
+    const cor = corMaterial(mat);
+    const pct = (v/total*100).toFixed(0);
+    return `<span style="display:inline-flex;align-items:center;gap:4px;background:${cor}22;border:1px solid ${cor};color:${cor};font-size:10px;font-weight:700;padding:2px 7px;border-radius:12px;white-space:nowrap">${mat}<span style="color:#f0f0f0;font-weight:600">${pct}%</span></span>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+// ABA OURO PREVISTO — isolada, não afeta nenhuma outra aba
+// ══════════════════════════════════════════════════════════════
+function fmtG(g) {
+  if (!g || g <= 0) return '—';
+  if (g >= 1000) return (g/1000).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' kg';
+  return g.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' g';
+}
+
+// Aderência = 1 − |Realizado − Previsto| / Previsto
+// Estourar acima do previsto pesa igual a ficar abaixo — nunca passa de 100%.
+function aderencia(previsto, realizado) {
+  if (!previsto || previsto <= 0) return null;
+  const val = 1 - Math.abs(realizado - previsto) / previsto;
+  return Math.max(0, val); // nunca negativo mesmo em desvios extremos
+}
+
+function resetOuro() {
+  // Vai para o último dia com dado de ouro (hora a hora) em qualquer linha de moagem
+  const datas = [...new Set([
+    ...Object.keys((PROD_PLANTA.ouro_hora||{}).l1||{}),
+    ...Object.keys((PROD_PLANTA.ouro_hora||{}).l2||{}),
+    ...Object.keys((PROD_PLANTA.ouro_hora||{}).l3||{}),
+  ])].sort();
+  const el = document.getElementById('ouData');
+  const ultimo = datas.length ? datas[datas.length-1] : '';
+  if (el) el.value = ultimo;
+  // Início/Fim padrão: primeiro ao último dia com dado no mês do último dia disponível
+  const iniEl = document.getElementById('ouIni');
+  const fimEl = document.getElementById('ouFim');
+  if (iniEl && !iniEl.value) {
+    if (ultimo) {
+      const mesUltimo = ultimo.slice(0,7);
+      const datasDoMes = datas.filter(d => d.startsWith(mesUltimo));
+      iniEl.value = datasDoMes.length ? datasDoMes[0] : ultimo;
+    }
+  }
+  if (fimEl && !fimEl.value) fimEl.value = ultimo;
+  renderOuro();
+}
+
+function renderOuro() {
+  if (!dadosCarregados()) return;
+  const el = document.getElementById('ouData');
+  const data = el ? el.value : '';
+  const infoEl = document.getElementById('ouInfo');
+  if (!data) { if (infoEl) infoEl.textContent = 'Sem dados de ouro previsto.'; return; }
+  const dd = data.slice(8)+'/'+data.slice(5,7)+'/'+data.slice(0,4);
+  if (infoEl) infoEl.textContent = dd;
+  const LINHAS = ['l1','l2','l3'];
+
+  // ── Período (Data Início / Data Fim) — mesmo padrão da aba Filtro de Impactantes ──
+  const iniEl = document.getElementById('ouIni');
+  const fimEl = document.getElementById('ouFim');
+  const periodoIni = iniEl ? iniEl.value : '';
+  const periodoFim = fimEl ? fimEl.value : '';
+
+  // ── KPI Dia ──
+  let ouroDia = 0, estimandoDia = false;
+  LINHAS.forEach(k => {
+    const oe = ouroEfetivo(k, data);
+    ouroDia += oe.total;
+    if (oe.estimando) estimandoDia = true;
+  });
+  const kpiDiaEl = document.getElementById('ouKpiDia');
+  const kpiDiaSubEl = document.getElementById('ouKpiDiaSub');
+  if (kpiDiaEl) kpiDiaEl.textContent = fmtG(ouroDia);
+  if (kpiDiaSubEl) kpiDiaSubEl.textContent = ouroDia>0 ? (estimandoDia ? '⚠ inclui estimativa (turno aberto)' : 'totalizador da balança') : '';
+
+  // ── KPI Período (Data Início → Data Fim) ──
+  const datasMes = [...new Set([
+    ...Object.keys((PROD_PLANTA.ouro_hora||{}).l1||{}),
+    ...Object.keys((PROD_PLANTA.ouro_hora||{}).l2||{}),
+    ...Object.keys((PROD_PLANTA.ouro_hora||{}).l3||{}),
+    ...Object.keys((PROD_PLANTA.ouro||{}).l1||{}),
+    ...Object.keys((PROD_PLANTA.ouro||{}).l2||{}),
+    ...Object.keys((PROD_PLANTA.ouro||{}).l3||{}),
+  ])].filter(d => (!periodoIni || d>=periodoIni) && (!periodoFim || d<=periodoFim)).sort();
+  let ouroMes = 0;
+  datasMes.forEach(d => { LINHAS.forEach(k => { ouroMes += ouroEfetivo(k,d).total; }); });
+  const kpiMesEl = document.getElementById('ouKpiMes');
+  const kpiMesSubEl = document.getElementById('ouKpiMesSub');
+  if (kpiMesEl) kpiMesEl.textContent = fmtG(ouroMes);
+  if (kpiMesSubEl) kpiMesSubEl.textContent = datasMes.length + ' dia(s) no período';
+
+  // ── Teor / Recuperação médios do dia (soma das 3 linhas, ponderado por conchada) ──
+  let teorSoma=0, teorPeso=0, recupSoma=0, recupPeso=0;
+  LINHAS.forEach(k => {
+    const pl = (PROD_PLANTA.prod_linha[k]||{})[data] || {};
+    teorSoma  += pl.teorSoma  || 0; teorPeso  += pl.teorPeso  || 0;
+    recupSoma += pl.recupSoma || 0; recupPeso += pl.recupPeso || 0;
+  });
+  const kpiTeorEl  = document.getElementById('ouKpiTeor');
+  const kpiRecupEl = document.getElementById('ouKpiRecup');
+  if (kpiTeorEl)  kpiTeorEl.textContent  = teorPeso>0  ? (teorSoma/teorPeso).toFixed(2)+' g/t'  : '—';
+  if (kpiRecupEl) kpiRecupEl.textContent = recupPeso>0 ? (recupSoma/recupPeso*100).toFixed(1)+'%' : '—';
+
+  // ── Ouro Realizado x Previsto e Aderência (fonte: aba Resumo, colunas H/I) ──
+  const resumoDia = (PROD_PLANTA.ouro_resumo||{})[data] || null;
+  const kpiRealEl    = document.getElementById('ouKpiRealizado');
+  const kpiAderDiaEl = document.getElementById('ouKpiAderDia');
+  if (resumoDia && resumoDia.realizado > 0) {
+    if (kpiRealEl) kpiRealEl.textContent = fmtG(resumoDia.realizado);
+    const previstoResumo = resumoDia.previsto > 0 ? resumoDia.previsto : ouroDia; // usa o previsto da planilha, senão o calculado
+    const ad = aderencia(previstoResumo, resumoDia.realizado);
+    if (kpiAderDiaEl) {
+      kpiAderDiaEl.textContent = ad != null ? (ad*100).toFixed(0)+'%' : '—';
+      kpiAderDiaEl.style.color = ad == null ? '#888' : (ad>=0.9 ? '#4caf50' : ad>=0.7 ? '#ffc107' : '#f44336');
+    }
+  } else {
+    if (kpiRealEl) kpiRealEl.textContent = '—';
+    if (kpiAderDiaEl) { kpiAderDiaEl.textContent = '—'; kpiAderDiaEl.style.color = '#26a69a'; }
+  }
+
+  // ── Aderência média do período (só dias com Realizado lançado) ──
+  const diasComRealizado = Object.keys(PROD_PLANTA.ouro_resumo||{})
+    .filter(d => (!periodoIni || d>=periodoIni) && (!periodoFim || d<=periodoFim) && (PROD_PLANTA.ouro_resumo[d].realizado||0) > 0);
+  const kpiAderMesEl = document.getElementById('ouKpiAderMes');
+  if (diasComRealizado.length) {
+    const soma = diasComRealizado.reduce((acc,d) => {
+      const rr = PROD_PLANTA.ouro_resumo[d];
+      const previstoR = rr.previsto > 0 ? rr.previsto : 0;
+      const ad = aderencia(previstoR, rr.realizado);
+      return acc + (ad != null ? ad : 0);
+    }, 0);
+    const media = soma / diasComRealizado.length;
+    if (kpiAderMesEl) {
+      kpiAderMesEl.textContent = (media*100).toFixed(0)+'%';
+      kpiAderMesEl.style.color = media>=0.9 ? '#4caf50' : media>=0.7 ? '#ffc107' : '#f44336';
+    }
+  } else {
+    if (kpiAderMesEl) { kpiAderMesEl.textContent = '—'; kpiAderMesEl.style.color = '#26a69a'; }
+  }
+
+  // ── Coleta hora-a-hora por material (todas as linhas somadas) ──
+  const horaMatMap = {}; // hora -> {mat: soma_g}
+  LINHAS.forEach(k => {
+    const arr = ((PROD_PLANTA.ouro_hora||{})[k]||{})[data] || [];
+    arr.forEach(({h, mat, ouro}) => {
+      if (h == null || h < 0 || h > 23) return;
+      if (!horaMatMap[h]) horaMatMap[h] = {};
+      horaMatMap[h][mat] = (horaMatMap[h][mat]||0) + ouro;
+    });
+  });
+
+  // ── Material do dia e do período (conchadas, soma L1+L2+L3) ──
+  const matDiaComb = {};
+  LINHAS.forEach(k => {
+    const md = (PROD_PLANTA.material_dia[k]||{})[data] || {};
+    Object.entries(md).forEach(([mat,v]) => { matDiaComb[mat] = (matDiaComb[mat]||0) + v; });
+  });
+  const matMesComb = {};
+  LINHAS.forEach(k => {
+    Object.entries(PROD_PLANTA.material_dia[k]||{}).forEach(([d,md]) => {
+      if ((periodoIni && d<periodoIni) || (periodoFim && d>periodoFim)) return;
+      Object.entries(md).forEach(([mat,v]) => { matMesComb[mat] = (matMesComb[mat]||0) + v; });
+    });
+  });
+
+  // ── Cor de material: usa corMaterial() global — mesma cor em toda a página ──
+  const todosMateriais = new Set();
+  Object.values(horaMatMap).forEach(m => Object.keys(m).forEach(mat => todosMateriais.add(mat)));
+  Object.keys(matDiaComb).forEach(mat => todosMateriais.add(mat));
+  Object.keys(matMesComb).forEach(mat => todosMateriais.add(mat));
+  const matOrdenados = [...todosMateriais].sort();
+  const corMat = corMaterial; // alias, já é global e determinística
+
+  // ── Gráfico Hora a Hora (barras empilhadas por material) ──
+  dc('ouHoraChart');
+  const horasOrdem = [7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0,1,2,3,4,5,6];
+  const horasComDado = horasOrdem.filter(h => horaMatMap[h]);
+  if (horasComDado.length && matOrdenados.length) {
+    const datasets = matOrdenados
+      .filter(mat => horasComDado.some(h => (horaMatMap[h][mat]||0) > 0))
+      .map(mat => ({
+        label: mat,
+        data: horasComDado.map(h => +((horaMatMap[h][mat]||0).toFixed(3))),
+        backgroundColor: corMat(mat),
+        stack: 'ouro'
+      }));
+    CI['ouHoraChart'] = new Chart(document.getElementById('ouHoraChart'), {
+      type: 'bar',
+      data: { labels: horasComDado.map(h=>String(h).padStart(2,'0')+'h'), datasets },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins: {
+          legend: { display:true, position:'top', labels:{color:'#ccc',font:{size:11},boxWidth:12} },
+          tooltip: { backgroundColor:'#131620', callbacks:{ label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(2)} g` } }
+        },
+        scales: {
+          x: { stacked:true, ticks:{color:'#ccc',font:{size:10}}, grid:{display:false} },
+          y: { stacked:true, ticks:{color:'#ddd',font:{size:10}}, grid:{color:'rgba(255,255,255,0.06)'}, title:{display:true,text:'gramas',color:'#888',font:{size:10}} }
+        }
+      }
+    });
+  } else {
+    const ctx = document.getElementById('ouHoraChart');
+    if (ctx) { const c=ctx.getContext('2d'); c.clearRect(0,0,ctx.width,ctx.height); }
+  }
+
+  // ── Histórico Diário do Mês (Previsto x Realizado, quando houver) ──
+  dc('ouHistChart');
+  if (datasMes.length) {
+    const histVals = datasMes.map(d => {
+      let tot=0; LINHAS.forEach(k=>{ tot += ouroEfetivo(k,d).total; });
+      return +tot.toFixed(2);
+    });
+    const realVals = datasMes.map(d => {
+      const rr = (PROD_PLANTA.ouro_resumo||{})[d];
+      return rr && rr.realizado>0 ? +rr.realizado.toFixed(2) : null;
+    });
+    const temRealizado = realVals.some(v => v != null);
+    const datasets = [{ label:'Previsto (g)', data:histVals, backgroundColor:'#8b5a2b', borderRadius:3 }];
+    if (temRealizado) datasets.push({ label:'Realizado (g)', data:realVals, backgroundColor:'#ffc107', borderRadius:3 });
+    CI['ouHistChart'] = new Chart(document.getElementById('ouHistChart'), {
+      type: 'bar',
+      data: { labels: datasMes.map(d=>d.slice(8,10)), datasets },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins: {
+          legend: { display:temRealizado, position:'top', labels:{color:'#ccc',font:{size:10},boxWidth:12} },
+          tooltip:{backgroundColor:'#131620', callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(2)} g`}}
+        },
+        scales: {
+          x: { ticks:{color:'#ccc',font:{size:10}}, grid:{display:false} },
+          y: { ticks:{color:'#ddd',font:{size:10}}, grid:{color:'rgba(255,255,255,0.06)'} }
+        }
+      }
+    });
+  }
+
+  // ── Pizzas de Material (Dia / Mês) — helper reutilizável ──
+  function pizzaMaterial(canvasId, legendId, matMap) {
+    dc(canvasId);
+    const entries = Object.entries(matMap).sort((a,b)=>b[1]-a[1]);
+    const total = entries.reduce((a,[,v])=>a+v,0);
+    const legendEl = document.getElementById(legendId);
+    if (!entries.length || total<=0) {
+      if (legendEl) legendEl.innerHTML = '<span style="color:#555">Sem dados</span>';
+      return;
+    }
+    const cores = entries.map(([mat])=>corMat(mat));
+    CI[canvasId] = new Chart(document.getElementById(canvasId), {
+      type:'doughnut',
+      data:{ labels:entries.map(([mat])=>mat), datasets:[{data:entries.map(([,v])=>v), backgroundColor:cores, borderWidth:2, borderColor:'#131620'}] },
+      options:{
+        responsive:true, maintainAspectRatio:false, cutout:'55%',
+        plugins:{ legend:{display:false}, tooltip:{backgroundColor:'#131620', callbacks:{label:c=>`${c.label}: ${c.parsed} conch (${(c.parsed/total*100).toFixed(0)}%)`}} },
+        animation:{duration:400}
+      }
+    });
+    if (legendEl) {
+      legendEl.innerHTML = entries.map(([mat,v])=>
+        `<span style="color:${corMat(mat)};font-weight:700">${mat}</span> <span style="color:#f0f0f0">${v} conch</span> <span style="color:#aaa;font-size:11px">(${(v/total*100).toFixed(0)}%)</span>`
+      ).join('<br>');
+    }
+  }
+  pizzaMaterial('ouPieDia', 'ouPieDiaLegend', matDiaComb);
+  pizzaMaterial('ouPieMes', 'ouPieMesLegend', matMesComb);
+}
 
 function resetDashProd() {
   // Vai para o último dia com QUALQUER dado (balança OU conchadas OU impactantes)
@@ -2085,6 +2556,36 @@ function prodEfetiva(key, d) {
   const total     = pD + pN;
   const estimando = (!dClosed && cd > 0) || (!nClosed && cn > 0);
   return { total, pD, pN, dClosed, nClosed, estimando, conch: cd + cn };
+}
+
+// ── ouroEfetivo — espelha prodEfetiva() para o Ouro Previsto (só Linha 1/2/3) ──
+// Turno sem "Totalizador de Ouro" fechado → soma da coluna "Ouro previsto (g) hora a hora"
+// Turno com o totalizador (col T) fechado → valor oficial da planilha
+// Retorna em GRAMAS.
+function ouroEfetivo(key, d) {
+  if (typeof PROD_PLANTA === 'undefined' || !PROD_PLANTA.ouro) return {total:0, dClosed:false, nClosed:false, estimando:false};
+  const o  = (PROD_PLANTA.ouro[key] || {})[d] || null;
+  const pl = (PROD_PLANTA.prod_linha[key] || {})[d] || {};
+  const ogEst = pl.og || 0, onEst = pl.on || 0;
+  let gD, gN, dClosed, nClosed;
+  if (o) {
+    dClosed = !!o.dClosed; nClosed = !!o.nClosed;
+    gD = dClosed ? (o.d || 0) : ogEst;
+    gN = nClosed ? (o.n || 0) : onEst;
+  } else {
+    gD = ogEst; gN = onEst; dClosed = false; nClosed = false;
+  }
+  const total     = gD + gN;
+  const estimando = (!dClosed && ogEst > 0) || (!nClosed && onEst > 0);
+  return { total, gD, gN, dClosed, nClosed, estimando };
+}
+
+// ── teorRecupDia — teor médio e recuperação média (ponderados por conchada) ──
+function teorRecupDia(key, d) {
+  const pl = (PROD_PLANTA.prod_linha[key] || {})[d] || {};
+  const teor  = (pl.teorPeso  || 0) > 0 ? (pl.teorSoma  / pl.teorPeso)  : null;
+  const recup = (pl.recupPeso || 0) > 0 ? (pl.recupSoma / pl.recupPeso) : null;
+  return { teor, recup };
 }
 
 function renderDashProd() {
@@ -2150,6 +2651,37 @@ function renderDashProd() {
   setLinha('dpL1',l1R,l1C);
   setLinha('dpL2',l2R,l2C);
   setLinha('dpL3',l3R,l3C);
+
+  // Material alimentado em cada linha (conchadas por tipo, no dia selecionado)
+  const matEl1 = document.getElementById('dpL1Mat');
+  const matEl2 = document.getElementById('dpL2Mat');
+  const matEl3 = document.getElementById('dpL3Mat');
+  if (matEl1) matEl1.innerHTML = matChipsHTML((PROD_PLANTA.material_dia.l1||{})[data]);
+  if (matEl2) matEl2.innerHTML = matChipsHTML((PROD_PLANTA.material_dia.l2||{})[data]);
+  if (matEl3) matEl3.innerHTML = matChipsHTML((PROD_PLANTA.material_dia.l3||{})[data]);
+
+  // Resumo do Ouro — mesma data selecionada no Dashboard Produção
+  (function resumoOuroDash() {
+    const LINHAS = ['l1','l2','l3'];
+    let ouroDia = 0, estimandoOuro = false;
+    let teorSoma=0, teorPeso=0, recupSoma=0, recupPeso=0;
+    LINHAS.forEach(k => {
+      const oe = (typeof ouroEfetivo === 'function') ? ouroEfetivo(k, data) : {total:0, estimando:false};
+      ouroDia += oe.total;
+      if (oe.estimando) estimandoOuro = true;
+      const pl = (PROD_PLANTA.prod_linha[k]||{})[data] || {};
+      teorSoma  += pl.teorSoma  || 0; teorPeso  += pl.teorPeso  || 0;
+      recupSoma += pl.recupSoma || 0; recupPeso += pl.recupPeso || 0;
+    });
+    const elDia  = document.getElementById('dpOuroDia');
+    const elSub  = document.getElementById('dpOuroDiaSub');
+    const elTeor = document.getElementById('dpOuroTeor');
+    const elRec  = document.getElementById('dpOuroRecup');
+    if (elDia)  elDia.textContent  = (typeof fmtG === 'function') ? fmtG(ouroDia) : (ouroDia>0 ? ouroDia.toFixed(2)+' g' : '—');
+    if (elSub)  elSub.textContent  = ouroDia>0 ? (estimandoOuro ? '⚠ inclui estimativa (turno aberto)' : 'totalizador da balança') : '';
+    if (elTeor) elTeor.textContent = teorPeso>0  ? (teorSoma/teorPeso).toFixed(2)+' g/t'   : '—';
+    if (elRec)  elRec.textContent  = recupPeso>0 ? (recupSoma/recupPeso*100).toFixed(1)+'%' : '—';
+  })();
 
   // DF por seção
   const _hojeDP = new Date();
