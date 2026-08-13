@@ -278,6 +278,48 @@ body { background: #0f1117; color: #f0f0f0; font-family: 'Segoe UI', Arial, sans
 }
 
 
+/* ══════════════════════════════════════════════════════════════
+   OTIMIZAÇÕES ADICIONAIS PARA CELULAR
+   ══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Evita zoom automático do iOS ao tocar em inputs (exige >=16px) */
+  .filtro-group input,
+  .filtro-group select,
+  input[type="date"] { font-size: 16px !important; }
+
+  /* Aba Ouro Previsto — grids viram 2 colunas (KPIs) e 1 coluna (gráficos) */
+  .ou-kpi-grid  { grid-template-columns: repeat(2, 1fr) !important; gap: 6px; }
+  .ou-kpi-grid2 { grid-template-columns: repeat(2, 1fr) !important; gap: 6px; }
+  .ou-bottom-grid { grid-template-columns: 1fr !important; gap: 8px; }
+  .dp-ouro-inner  { grid-template-columns: 1fr 1fr !important; }
+
+  /* Gráficos da aba Ouro — altura reduzida p/ caber na tela sem exigir muito scroll */
+  .ou-chart-h { height: 220px !important; }
+
+  /* Filtro de período (Data / Data Início / Data Fim) — empilha em coluna */
+  #tab-ouro > div:first-child { flex-direction: column; align-items: stretch; }
+  #tab-ouro > div:first-child .filtro-group { width: 100%; }
+  #tab-ouro > div:first-child input { width: 100%; box-sizing: border-box; }
+  #tab-ouro > div:first-child > div[style*="width:1px"] { display: none; } /* divisor vertical não faz sentido empilhado */
+  #tab-ouro > div:first-child > span { white-space: normal; font-size: 10px; }
+  #tab-ouro .filtro-reset { width: 100%; }
+
+  /* Chips de material — não deixa ficar minúsculo demais no toque */
+  #tab-producao [id$="Mat"] span { font-size: 11px !important; padding: 3px 8px !important; }
+
+  /* Botões fixos PDF/Imagem — respeita área segura de celulares com notch/gestos */
+  .print-btn { bottom: calc(10px + env(safe-area-inset-bottom)); }
+  .img-btn   { bottom: calc(10px + env(safe-area-inset-bottom)); }
+}
+
+/* Toque mais suave/nativo em qualquer tela sensível ao toque */
+button, .tab-btn, .filtro-reset, .kpi-card, input[type="date"] {
+  -webkit-tap-highlight-color: rgba(232,160,32,0.25);
+}
+html { -webkit-text-size-adjust: 100%; }
+body { -webkit-overflow-scrolling: touch; }
+
+
 .aviso-est { display:inline-flex; align-items:center; gap:5px; background:#ffc10718; border:1px solid #ffc10755; border-radius:4px; padding:3px 8px; font-size:10px; color:#ffc107; font-weight:600; margin-top:3px; }
 .aviso-ts  { display:flex; align-items:center; gap:6px; background:#1e2235; border:1px solid #333; border-radius:4px; padding:5px 10px; font-size:11px; color:#aaa; margin-bottom:8px; }
 .aviso-ts strong { color:#e8a020; }
@@ -388,10 +430,12 @@ body { background: #0f1117; color: #f0f0f0; font-family: 'Segoe UI', Arial, sans
         🔴 Top Impactantes — Motivos de Parada <span class="help-btn" data-tip="impactantes">?</span>
         <span style="font-size:10px;color:#666" id="impSecaoLabel"></span>
       </div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
       <table class="imp-table">
         <thead><tr><th>#</th><th>Descrição / Motivo</th><th>Horas</th><th style="width:160px">Impacto</th><th>% do total parado</th></tr></thead>
         <tbody id="impBody"></tbody>
       </table>
+      </div>
     </div>
 
     <div class="charts-grid-2">
@@ -484,10 +528,12 @@ body { background: #0f1117; color: #f0f0f0; font-family: 'Segoe UI', Arial, sans
   <!-- Tabela detalhada -->
   <div class="imp-section">
     <div class="imp-header" id="rTabelaHeader">📋 Detalhamento das Paradas</div>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
     <table class="imp-table">
       <thead><tr><th>#</th><th>Descrição / Motivo</th><th style="text-align:center">Horas</th><th style="width:160px">Impacto</th><th style="text-align:center">% do parado</th></tr></thead>
       <tbody id="rTabelaBody"></tbody>
     </table>
+    </div>
   </div>
 </div>
 
@@ -917,14 +963,14 @@ body { background: #0f1117; color: #f0f0f0; font-family: 'Segoe UI', Arial, sans
   <!-- Hora a hora -->
   <div class="chart-card" style="margin-bottom:10px">
     <div class="chart-title">🥇 Ouro Previsto — Hora a Hora (por Material)</div>
-    <div style="height:280px"><canvas id="ouHoraChart"></canvas></div>
+    <div class="ou-chart-h" style="height:280px"><canvas id="ouHoraChart"></canvas></div>
   </div>
 
   <!-- Histórico mensal + Pizzas -->
   <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:10px" class="ou-bottom-grid">
     <div class="chart-card">
       <div class="chart-title">📈 Histórico Diário — Ouro Acumulado (Período)</div>
-      <div style="height:260px"><canvas id="ouHistChart"></canvas></div>
+      <div class="ou-chart-h" style="height:260px"><canvas id="ouHistChart"></canvas></div>
     </div>
     <div class="chart-card">
       <div class="chart-title">🧪 Material — % do Dia</div>
