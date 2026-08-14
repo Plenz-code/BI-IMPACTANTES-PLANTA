@@ -290,6 +290,7 @@ body { background: #0f1117; color: #f0f0f0; font-family: 'Segoe UI', Arial, sans
   /* Aba Ouro Previsto — grids viram 2 colunas (KPIs) e 1 coluna (gráficos) */
   .ou-kpi-grid  { grid-template-columns: repeat(2, 1fr) !important; gap: 6px; }
   .ou-kpi-grid2 { grid-template-columns: repeat(2, 1fr) !important; gap: 6px; }
+  .ou-kpi-grid3 { grid-template-columns: repeat(2, 1fr) !important; gap: 6px; }
   .ou-bottom-grid { grid-template-columns: 1fr !important; gap: 8px; }
   .dp-ouro-inner  { grid-template-columns: 1fr 1fr !important; }
 
@@ -941,17 +942,30 @@ body { -webkit-overflow-scrolling: touch; }
     </div>
   </div>
 
-  <!-- KPIs — Realizado x Previsto (lançamento manual na aba Resumo) -->
+  <!-- KPIs — Realizado (Mina + Limpeza) x Previsto (lançamento manual na aba Resumo) -->
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px" class="ou-kpi-grid2">
     <div class="kpi-card" style="--cor:#ff9800">
-      <div class="kpi-label">Ouro Realizado — Dia</div>
+      <div class="kpi-label">Ouro Realizado (Mina) — Dia</div>
       <div class="kpi-value" id="ouKpiRealizado" style="color:#ff9800">—</div>
       <div class="kpi-sub" id="ouKpiRealizadoSub"></div>
     </div>
+    <div class="kpi-card" style="--cor:#00bcd4">
+      <div class="kpi-label">Ouro da Limpeza — Dia</div>
+      <div class="kpi-value" id="ouKpiLimpeza" style="color:#00bcd4">—</div>
+      <div class="kpi-sub" id="ouKpiLimpezaSub"></div>
+    </div>
+    <div class="kpi-card" style="--cor:#e8b923">
+      <div class="kpi-label">Ouro Realizado + Limpeza — Dia</div>
+      <div class="kpi-value" id="ouKpiRealTotal" style="color:#e8b923">—</div>
+      <div class="kpi-sub" id="ouKpiRealTotalSub"></div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px" class="ou-kpi-grid3">
     <div class="kpi-card" style="--cor:#26a69a">
       <div class="kpi-label">Aderência — Dia</div>
       <div class="kpi-value" id="ouKpiAderDia" style="color:#26a69a">—</div>
-      <div class="kpi-sub"></div>
+      <div class="kpi-sub" id="ouKpiAderDiaSub"></div>
     </div>
     <div class="kpi-card" style="--cor:#26a69a">
       <div class="kpi-label">Aderência — Período</div>
@@ -1991,11 +2005,13 @@ function handleFile(f) {
               const num = typeof v==='number' ? v : 0;
               if (num>0 && !balanca[key][data]) balanca[key][data] = {d:num, n:0, dClosed:true, nClosed:true};
             });
-            // Ouro Previsto (col H, idx7) e Ouro Realizado (col I, idx8) — plantwide, lançamento manual
-            const ouroPrevisto  = typeof r[7]==='number' ? r[7] : 0;
-            const ouroRealizado = typeof r[8]==='number' ? r[8] : 0;
-            if (ouroPrevisto > 0 || ouroRealizado > 0) {
-              ouroResumo[data] = { previsto: ouroPrevisto, realizado: ouroRealizado };
+            // Ouro Previsto (col H, idx7), Ouro Realizado Mina (col I, idx8),
+            // Ouro Realizado da Limpeza (col K, idx10) — plantwide, lançamento manual
+            const ouroPrevisto  = typeof r[7]==='number'  ? r[7]  : 0;
+            const ouroRealizado = typeof r[8]==='number'  ? r[8]  : 0;
+            const ouroLimpeza   = typeof r[10]==='number' ? r[10] : 0;
+            if (ouroPrevisto > 0 || ouroRealizado > 0 || ouroLimpeza > 0) {
+              ouroResumo[data] = { previsto: ouroPrevisto, realizado: ouroRealizado, limpeza: ouroLimpeza };
             }
           });
         }
@@ -2386,32 +2402,44 @@ function renderOuro() {
   if (kpiTeorEl)  kpiTeorEl.textContent  = teorPeso>0  ? (teorSoma/teorPeso).toFixed(2)+' g/t'  : '—';
   if (kpiRecupEl) kpiRecupEl.textContent = recupPeso>0 ? (recupSoma/recupPeso*100).toFixed(1)+'%' : '—';
 
-  // ── Ouro Realizado x Previsto e Aderência (fonte: aba Resumo, colunas H/I) ──
+  // ── Ouro Realizado (Mina + Limpeza) x Previsto e Aderência (fonte: aba Resumo, colunas H/I/K) ──
+  // Aderência usa SÓ a Mina — a Limpeza é material extra, fora do que o Previsto tentava estimar.
   const resumoDia = (PROD_PLANTA.ouro_resumo||{})[data] || null;
-  const kpiRealEl    = document.getElementById('ouKpiRealizado');
-  const kpiAderDiaEl = document.getElementById('ouKpiAderDia');
-  if (resumoDia && resumoDia.realizado > 0) {
-    if (kpiRealEl) kpiRealEl.textContent = fmtG(resumoDia.realizado);
+  const kpiRealEl      = document.getElementById('ouKpiRealizado');
+  const kpiLimpezaEl    = document.getElementById('ouKpiLimpeza');
+  const kpiRealTotalEl  = document.getElementById('ouKpiRealTotal');
+  const kpiAderDiaEl   = document.getElementById('ouKpiAderDia');
+  if (resumoDia && (resumoDia.realizado > 0 || resumoDia.limpeza > 0)) {
+    const realMina    = resumoDia.realizado || 0;
+    const limpezaDia  = resumoDia.limpeza   || 0;
+    const realTotalDia = realMina + limpezaDia; // exibição informativa apenas
+    if (kpiRealEl)     kpiRealEl.textContent     = realMina > 0 ? fmtG(realMina) : '—';
+    if (kpiLimpezaEl)  kpiLimpezaEl.textContent  = limpezaDia > 0 ? fmtG(limpezaDia) : '—';
+    if (kpiRealTotalEl) kpiRealTotalEl.textContent = fmtG(realTotalDia);
+    // Aderência compara Previsto x Realizado da MINA (a limpeza não entra — é extra, não previsto)
     const previstoResumo = resumoDia.previsto > 0 ? resumoDia.previsto : ouroDia; // usa o previsto da planilha, senão o calculado
-    const ad = aderencia(previstoResumo, resumoDia.realizado);
+    const ad = aderencia(previstoResumo, realMina);
     if (kpiAderDiaEl) {
       kpiAderDiaEl.textContent = ad != null ? (ad*100).toFixed(0)+'%' : '—';
       kpiAderDiaEl.style.color = ad == null ? '#888' : (ad>=0.9 ? '#4caf50' : ad>=0.7 ? '#ffc107' : '#f44336');
     }
   } else {
-    if (kpiRealEl) kpiRealEl.textContent = '—';
+    if (kpiRealEl)      kpiRealEl.textContent      = '—';
+    if (kpiLimpezaEl)   kpiLimpezaEl.textContent   = '—';
+    if (kpiRealTotalEl) kpiRealTotalEl.textContent = '—';
     if (kpiAderDiaEl) { kpiAderDiaEl.textContent = '—'; kpiAderDiaEl.style.color = '#26a69a'; }
   }
 
-  // ── Aderência média do período (só dias com Realizado lançado) ──
+  // ── Aderência média do período (só Mina — Limpeza é material extra, fora do previsto) ──
   const diasComRealizado = Object.keys(PROD_PLANTA.ouro_resumo||{})
-    .filter(d => (!periodoIni || d>=periodoIni) && (!periodoFim || d<=periodoFim) && (PROD_PLANTA.ouro_resumo[d].realizado||0) > 0);
+    .filter(d => (!periodoIni || d>=periodoIni) && (!periodoFim || d<=periodoFim)
+              && (PROD_PLANTA.ouro_resumo[d].realizado||0) > 0);
   const kpiAderMesEl = document.getElementById('ouKpiAderMes');
   if (diasComRealizado.length) {
     const soma = diasComRealizado.reduce((acc,d) => {
       const rr = PROD_PLANTA.ouro_resumo[d];
       const previstoR = rr.previsto > 0 ? rr.previsto : 0;
-      const ad = aderencia(previstoR, rr.realizado);
+      const ad = aderencia(previstoR, rr.realizado||0);
       return acc + (ad != null ? ad : 0);
     }, 0);
     const media = soma / diasComRealizado.length;
@@ -2489,7 +2517,7 @@ function renderOuro() {
     if (ctx) { const c=ctx.getContext('2d'); c.clearRect(0,0,ctx.width,ctx.height); }
   }
 
-  // ── Histórico Diário do Mês (Previsto x Realizado, quando houver) ──
+  // ── Histórico Diário do Período (Previsto x Realizado[+Limpeza], quando houver) ──
   dc('ouHistChart');
   if (datasMes.length) {
     const histVals = datasMes.map(d => {
@@ -2500,16 +2528,23 @@ function renderOuro() {
       const rr = (PROD_PLANTA.ouro_resumo||{})[d];
       return rr && rr.realizado>0 ? +rr.realizado.toFixed(2) : null;
     });
+    const limpezaVals = datasMes.map(d => {
+      const rr = (PROD_PLANTA.ouro_resumo||{})[d];
+      return rr && rr.limpeza>0 ? +rr.limpeza.toFixed(2) : null;
+    });
     const temRealizado = realVals.some(v => v != null);
-    const datasets = [{ label:'Previsto (g)', data:histVals, backgroundColor:'#8b5a2b', borderRadius:3 }];
-    if (temRealizado) datasets.push({ label:'Realizado (g)', data:realVals, backgroundColor:'#ffc107', borderRadius:3 });
+    const temLimpeza   = limpezaVals.some(v => v != null);
+    // Previsto fica no seu próprio grupo; Realizado + Limpeza empilham juntos (mostra o total combinado)
+    const datasets = [{ label:'Previsto (g)', data:histVals, backgroundColor:'#8b5a2b', borderRadius:3, stack:'previsto' }];
+    if (temRealizado) datasets.push({ label:'Realizado (g)', data:realVals, backgroundColor:'#ffc107', borderRadius:3, stack:'realizado' });
+    if (temLimpeza)   datasets.push({ label:'Limpeza (g)',   data:limpezaVals, backgroundColor:'#00bcd4', borderRadius:3, stack:'realizado' });
     CI['ouHistChart'] = new Chart(document.getElementById('ouHistChart'), {
       type: 'bar',
       data: { labels: datasMes.map(d=>d.slice(8,10)), datasets },
       options: {
         responsive:true, maintainAspectRatio:false,
         plugins: {
-          legend: { display:temRealizado, position:'top', labels:{color:'#ccc',font:{size:10},boxWidth:12} },
+          legend: { display: temRealizado || temLimpeza, position:'top', labels:{color:'#ccc',font:{size:10},boxWidth:12} },
           tooltip:{backgroundColor:'#131620', callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(2)} g`}}
         },
         scales: {
