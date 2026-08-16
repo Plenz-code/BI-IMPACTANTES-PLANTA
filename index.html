@@ -2345,6 +2345,25 @@ function pizzaMaterial(canvasId, legendId, matMap) {
   }
 }
 
+// ── matDiaEscalado — corrige a distribuição por material quando a balança fecha ──
+// A coluna "Produção" hora-a-hora (usada para montar o mix por material) é sempre
+// uma ESTIMATIVA (carga média por conchada). Quando o operador fecha a balança do
+// turno, o total real pode ser diferente da soma das estimativas. Aqui a proporção
+// entre materiais vem da estimativa (não temos peso real por material), mas o TOTAL
+// é escalado para bater com prodEfetiva() — mesma lógica já usada em produção/ouro.
+function matDiaEscalado(key, d) {
+  const raw = (PROD_PLANTA.material_dia_ton[key]||{})[d] || {};
+  const estTotal = Object.values(raw).reduce((a,b)=>a+b, 0);
+  if (estTotal <= 0) return {};
+  const real = prodEfetiva(key, d); // total em kg (balança se fechou, senão a mesma estimativa)
+  const realTon = (real.total || 0) / 1000;
+  if (realTon <= 0) return {};
+  const fator = realTon / estTotal;
+  const out = {};
+  Object.entries(raw).forEach(([mat,v]) => { out[mat] = v * fator; });
+  return out;
+}
+
 // ══════════════════════════════════════════════════════════════
 // ABA OURO PREVISTO — isolada, não afeta nenhuma outra aba
 // ══════════════════════════════════════════════════════════════
@@ -2502,16 +2521,17 @@ function renderOuro() {
     });
   });
 
-  // ── Material do dia e do período (toneladas, soma L1+L2+L3) ──
+  // ── Material do dia e do período (toneladas, soma L1+L2+L3, escalado pela balança quando fechada) ──
   const matDiaComb = {};
   LINHAS.forEach(k => {
-    const md = (PROD_PLANTA.material_dia_ton[k]||{})[data] || {};
+    const md = matDiaEscalado(k, data);
     Object.entries(md).forEach(([mat,v]) => { matDiaComb[mat] = (matDiaComb[mat]||0) + v; });
   });
   const matMesComb = {};
   LINHAS.forEach(k => {
-    Object.entries(PROD_PLANTA.material_dia_ton[k]||{}).forEach(([d,md]) => {
+    Object.keys(PROD_PLANTA.material_dia_ton[k]||{}).forEach(d => {
       if ((periodoIni && d<periodoIni) || (periodoFim && d>periodoFim)) return;
+      const md = matDiaEscalado(k, d);
       Object.entries(md).forEach(([mat,v]) => { matMesComb[mat] = (matMesComb[mat]||0) + v; });
     });
   });
@@ -2932,11 +2952,11 @@ function renderDashProd() {
     if(el) el.innerHTML = '<span style="color:#555">Sem produção</span>';
   }
 
-  // Pizza diária de Material (G1/G2/G3/G4...) — combina L1+L2+L3, mesmo padrão da aba Ouro Previsto
+  // Pizza diária de Material (G1/G2/G3/G4...) — combina L1+L2+L3, escalado pela balança quando fechada
   (function() {
     const matDiaCombDash = {};
     ['l1','l2','l3'].forEach(k => {
-      const md = (PROD_PLANTA.material_dia_ton[k]||{})[data] || {};
+      const md = matDiaEscalado(k, data);
       Object.entries(md).forEach(([mat,v]) => { matDiaCombDash[mat] = (matDiaCombDash[mat]||0) + v; });
     });
     pizzaMaterial('dpPieMaterial', 'dpPieMaterialLegend', matDiaCombDash);
