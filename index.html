@@ -230,6 +230,7 @@ body { background: #0f1117; color: #f0f0f0; font-family: 'Segoe UI', Arial, sans
   .dp-dia-grid  { grid-template-columns: 1fr !important; }
   .dp-mes-grid  { grid-template-columns: 1fr !important; }
   .dp-brit-inner { grid-template-columns: 1fr 1fr !important; }
+  .dp-britmov-inner { grid-template-columns: 1fr 1fr !important; }
   .dp-moag-inner { grid-template-columns: 1fr 1fr !important; }
   .dp-mes-inner  { grid-template-columns: 1fr 1fr !important; }
 
@@ -570,35 +571,55 @@ body { -webkit-overflow-scrolling: touch; }
           <div id="dpBritAviso"></div>
         </div>
         <div class="kpi-card" style="--cor:#e8a020">
-          <div class="kpi-label">Conchadas</div>
-          <div class="kpi-value" id="dpBritC" style="color:#e8a020;font-size:18px">—</div>
-          <div class="kpi-sub">ciclos realizados</div>
-        </div>
-        <div class="kpi-card" style="--cor:#e8a020;grid-column:span 2">
           <div class="kpi-label">Disponibilidade Física</div>
           <div class="kpi-value" id="dpDFBrit" style="font-size:20px">—</div>
           <div class="kpi-sub" id="dpHPBrit"></div>
           <div class="kpi-sub" id="dpHSBrit" style="color:#f44336"></div>
         </div>
       </div>
+
+      <!-- Separador — Britador Móvel (mesma aba de card, só destacado) -->
+      <div style="display:flex;align-items:center;gap:8px;margin:12px 0 6px">
+        <div style="height:1px;flex:1;background:#2a2e3d"></div>
+        <span style="font-size:11px;color:#ff7043;font-weight:700;white-space:nowrap">🚜 BRITADOR MÓVEL</span>
+        <div style="height:1px;flex:1;background:#2a2e3d"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" class="dp-britmov-inner">
+        <div class="kpi-card" style="--cor:#ff7043">
+          <div class="kpi-label">Produção</div>
+          <div class="kpi-value" id="dpBritMovT" style="color:#ff7043;font-size:18px">—</div>
+          <div class="kpi-sub"></div>
+        </div>
+        <div class="kpi-card" style="--cor:#ff7043">
+          <div class="kpi-label">Disponibilidade Física</div>
+          <div class="kpi-value" id="dpDFBritMov" style="font-size:18px">—</div>
+        </div>
+      </div>
+
+      <!-- Separador — Britagem Global (Fixa + Móvel somadas) -->
+      <div style="display:flex;align-items:center;gap:8px;margin:12px 0 6px">
+        <div style="height:1px;flex:1;background:#2a2e3d"></div>
+        <span style="font-size:11px;color:#26a69a;font-weight:700;white-space:nowrap">🌐 BRITAGEM GLOBAL — FIXA + MÓVEL</span>
+        <div style="height:1px;flex:1;background:#2a2e3d"></div>
+      </div>
+      <div class="kpi-card" style="--cor:#26a69a">
+        <div class="kpi-label">Produção Total</div>
+        <div class="kpi-value" id="dpBritGlobalT" style="color:#26a69a">—</div>
+        <div class="kpi-sub" id="dpBritGlobalSub"></div>
+      </div>
     </div>
 
     <!-- Moagem diário -->
-    <div class="chart-card">
+    <div class="chart-card" style="display:flex;flex-direction:column;justify-content:center">
       <div class="chart-title">⚙️ Moagem — Dia <span id="dpMoagAviso" style="font-size:10px;color:#ffc107"></span></div>
 
       <!-- Balança total — destaque igual à britagem -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;margin-bottom:8px">
+      <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:6px;margin-bottom:8px">
         <div class="kpi-card" style="--cor:#B09D7C">
           <div class="kpi-label">Balança Moagem</div>
           <div class="kpi-value" id="dpMoagTotal" style="color:#B09D7C">—</div>
           <div class="kpi-sub">total L1 + L2 + L3</div>
           <div id="dpMoagBalAviso"></div>
-        </div>
-        <div class="kpi-card" style="--cor:#B09D7C">
-          <div class="kpi-label">Conchadas</div>
-          <div class="kpi-value" id="dpMoagConchTotal" style="color:#B09D7C;font-size:18px">—</div>
-          <div class="kpi-sub">total das linhas</div>
         </div>
       </div>
 
@@ -607,7 +628,6 @@ body { -webkit-overflow-scrolling: touch; }
         <div class="kpi-card" style="--cor:#4a90d9">
           <div class="kpi-label" style="color:#4a90d9">Linha 1</div>
           <div class="kpi-value" id="dpL1T" style="color:#4a90d9;font-size:17px">—</div>
-          <div class="kpi-sub" id="dpL1C"></div>
           <div style="font-size:11px;font-weight:700;margin-top:4px" id="dpDFL1">—</div>
           <div style="font-size:11px;color:#aaa" id="dpHPL1"></div>
           <div style="font-size:11px;color:#f44336" id="dpHSL1"></div>
@@ -617,7 +637,6 @@ body { -webkit-overflow-scrolling: touch; }
         <div class="kpi-card" style="--cor:#9b59b6">
           <div class="kpi-label" style="color:#9b59b6">Linha 2</div>
           <div class="kpi-value" id="dpL2T" style="color:#9b59b6;font-size:17px">—</div>
-          <div class="kpi-sub" id="dpL2C"></div>
           <div style="font-size:11px;font-weight:700;margin-top:4px" id="dpDFL2">—</div>
           <div style="font-size:11px;color:#aaa" id="dpHPL2"></div>
           <div style="font-size:11px;color:#f44336" id="dpHSL2"></div>
@@ -627,7 +646,6 @@ body { -webkit-overflow-scrolling: touch; }
         <div class="kpi-card" style="--cor:#4caf50">
           <div class="kpi-label" style="color:#4caf50">Linha 3</div>
           <div class="kpi-value" id="dpL3T" style="color:#4caf50;font-size:17px">—</div>
-          <div class="kpi-sub" id="dpL3C"></div>
           <div style="font-size:11px;font-weight:700;margin-top:4px" id="dpDFL3">—</div>
           <div style="font-size:11px;color:#aaa" id="dpHPL3"></div>
           <div style="font-size:11px;color:#f44336" id="dpHSL3"></div>
@@ -678,13 +696,21 @@ body { -webkit-overflow-scrolling: touch; }
   <div style="display:grid;grid-template-columns:1fr 220px 1.8fr;gap:10px;margin-bottom:10px" class="dp-mes-grid">
     <div class="chart-card">
       <div class="chart-title">📅 Acumulado Mensal</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px" class="dp-mes-inner">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px" class="dp-mes-inner">
         <div class="kpi-card" style="--cor:#e8a020">
           <div class="kpi-label">Britagem Mês</div>
           <div class="kpi-value" id="dpMBritT" style="color:#e8a020;font-size:16px">—</div>
-          <div class="kpi-sub" id="dpMBritC"></div>
+          </div>
+        <div class="kpi-card" style="--cor:#ff7043">
+          <div class="kpi-label">Britador Móvel Mês</div>
+          <div class="kpi-value" id="dpMBritMovT" style="color:#ff7043;font-size:16px">—</div>
+          </div>
+        <div class="kpi-card" style="--cor:#26a69a">
+          <div class="kpi-label">Britagem Global Mês</div>
+          <div class="kpi-value" id="dpMBritGlobalT" style="color:#26a69a;font-size:16px">—</div>
+          <div class="kpi-sub" id="dpMBritGlobalSub" style="font-size:9px"></div>
         </div>
-        <div class="kpi-card" style="--cor:#B09D7C">
+        <div class="kpi-card" style="--cor:#B09D7C;grid-column:span 3">
           <div class="kpi-label">Total Moagem Mês</div>
           <div class="kpi-value" id="dpMMoagTotal" style="color:#B09D7C;font-size:16px">—</div>
           <div class="kpi-sub">L1 + L2 + L3</div>
@@ -693,18 +719,15 @@ body { -webkit-overflow-scrolling: touch; }
         <div class="kpi-card" style="--cor:#4a90d9">
           <div class="kpi-label" style="color:#4a90d9">L1 Mês</div>
           <div class="kpi-value" id="dpML1T" style="color:#4a90d9;font-size:16px">—</div>
-          <div class="kpi-sub" id="dpML1C"></div>
-        </div>
+          </div>
         <div class="kpi-card" style="--cor:#9b59b6">
           <div class="kpi-label" style="color:#9b59b6">L2 Mês</div>
           <div class="kpi-value" id="dpML2T" style="color:#9b59b6;font-size:16px">—</div>
-          <div class="kpi-sub" id="dpML2C"></div>
-        </div>
-        <div class="kpi-card" style="--cor:#4caf50;grid-column:span 2">
+          </div>
+        <div class="kpi-card" style="--cor:#4caf50">
           <div class="kpi-label" style="color:#4caf50">L3 Mês</div>
           <div class="kpi-value" id="dpML3T" style="color:#4caf50;font-size:16px">—</div>
-          <div class="kpi-sub" id="dpML3C"></div>
-        </div>
+          </div>
       </div>
     </div>
     <!-- Pizza mensal L1/L2/L3 -->
@@ -2053,6 +2076,33 @@ function handleFile(f) {
         PROD_PLANTA = { resumo, prod_linha: prodLinha, material_tot: matTot, material_dia: matDia, material_dia_ton: matDiaTon, balanca, ouro, ouro_hora: ouroHora, ouro_resumo: ouroResumo };
       })();
 
+      // ── Britador Móvel — aba separada, 2 lançamentos/dia (fechamento de turno) ──
+      // Sem balança: produção sempre calculada por fórmula (conchadas × 1,5 × 1,8).
+      // Lê direto a linha "TOTAL GLOBAL DO DIA", que a própria planilha já soma.
+      (function parseBritadorMovel() {
+        const out = {};
+        const ws = wb.Sheets['Britador Móvel'];
+        if (!ws) { BRIT_MOVEL = out; return; }
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+        let ultimaData = null;
+        rows.slice(1).forEach(r => {
+          const c0 = r[0];
+          const data = fmtDate(c0);
+          if (data) {
+            ultimaData = data;
+          } else if (typeof c0 === 'string' && c0.toUpperCase().indexOf('TOTAL GLOBAL') >= 0 && ultimaData) {
+            const conch = typeof r[4]==='number' ? r[4] : 0;
+            const prod  = typeof r[5]==='number' ? r[5] : 0;
+            const hOp   = typeof r[6]==='number' ? r[6] : 0;
+            const hPa   = typeof r[7]==='number' ? r[7] : 0;
+            if (conch > 0 || prod > 0 || hOp > 0 || hPa > 0) {
+              out[ultimaData] = { conch, prod, hOp, hPa };
+            }
+          }
+        });
+        BRIT_MOVEL = out;
+      })();
+
       // Atualiza datas disponíveis no seletor do relatório
       const allDates = [...new Set([
         ...Object.keys(brit_daily),
@@ -2277,6 +2327,8 @@ let R_MOT = { brit:{}, l1:{}, l2:{}, l3:{} };
 let R_KPI = { brit:{}, l1:{}, l2:{}, l3:{} };
 
 let PROD_PLANTA = {resumo:[], prod_linha:{brit:{},l1:{},l2:{},l3:{}}, material_tot:{brit:{},l1:{},l2:{},l3:{}}, material_dia:{brit:{},l1:{},l2:{},l3:{}}, material_dia_ton:{brit:{},l1:{},l2:{},l3:{}}, balanca:{brit:{},l1:{},l2:{},l3:{}}, ouro:{brit:{},l1:{},l2:{},l3:{}}, ouro_hora:{brit:{},l1:{},l2:{},l3:{}}, ouro_resumo:{}};
+// Britador Móvel — aba nova e independente, sem balança (produção sempre calculada)
+let BRIT_MOVEL = {};
 
 /* ══════════════════════════════════════════════════════════════
    DASHBOARD PRODUÇÃO — Diário + Mensal + Impactantes
@@ -2742,9 +2794,45 @@ function renderDashProd() {
 
   // Atualiza Britagem diário
   document.getElementById('dpBritT').textContent = britT>0 ? fmtT(britT) : '—';
-  document.getElementById('dpBritC').textContent = britC>0 ? britC.toLocaleString('pt-BR') : '—';
   const bAv = document.getElementById('dpBritAviso');
   if (bAv) bAv.innerHTML = avisoEst(britR.estimando, britC);
+
+  // Atualiza Britagem Móvel diário — sem balança, produção sempre calculada por fórmula
+  (function() {
+    const bm = BRIT_MOVEL[data] || null;
+    const elT  = document.getElementById('dpBritMovT');
+    const elDF = document.getElementById('dpDFBritMov');
+    if (bm) {
+      const prodKg = (bm.prod || 0) * 1000; // t → kg, escala do fmtT
+      if (elT) elT.textContent = prodKg > 0 ? fmtT(prodKg) : '—';
+      const baseH = bm.hOp + bm.hPa;
+      const df = baseH > 0 ? (bm.hOp / baseH * 100) : null;
+      if (elDF) {
+        elDF.textContent = df != null ? df.toFixed(1)+'%' : '—';
+        elDF.style.color = df == null ? '#888' : (df>=85?'#4caf50':df>=60?'#ffc107':'#f44336');
+      }
+    } else {
+      if (elT) elT.textContent = '—';
+      if (elDF) { elDF.textContent = '—'; elDF.style.color = '#888'; }
+    }
+  })();
+
+  // Britagem Global — soma Fixa (britT, já em kg) + Móvel (BRIT_MOVEL, em t)
+  (function() {
+    const bm = BRIT_MOVEL[data] || null;
+    const fixaKg  = britT || 0;
+    const movelKg = bm ? (bm.prod || 0) * 1000 : 0;
+    const globalKg = fixaKg + movelKg;
+    const elG    = document.getElementById('dpBritGlobalT');
+    const elGSub = document.getElementById('dpBritGlobalSub');
+    if (elG) elG.textContent = globalKg > 0 ? fmtT(globalKg) : '—';
+    if (elGSub) {
+      const partes = [];
+      if (fixaKg  > 0) partes.push('Fixa '  + fmtT(fixaKg));
+      if (movelKg > 0) partes.push('Móvel ' + fmtT(movelKg));
+      elGSub.textContent = partes.join(' + ');
+    }
+  })();
 
   // Atualiza Moagem diário
   document.getElementById('dpMoagTotal').textContent = moagT>0 ? fmtT(moagT) : '—';
@@ -2759,7 +2847,6 @@ function renderDashProd() {
 
   const setLinha = (id, r, c) => {
     document.getElementById(id+'T').textContent = r.total>0 ? fmtT(r.total) + (r.estimando?' ~':'') : '—';
-    document.getElementById(id+'C').textContent = c>0 ? c+' conch' : '—';
     const avEl = document.getElementById(id+'Aviso');
     if (avEl) avEl.innerHTML = r.estimando ? '<span class="aviso-est">⚠️ Sem balança</span>' : '';
   };
@@ -2883,14 +2970,34 @@ function renderDashProd() {
   const mL3C   = Object.entries(PROD_PLANTA.prod_linha.l3||{}).filter(([d])=>d.startsWith(mes)).reduce((s,[,v])=>s+(v.conch||0),0);
 
   document.getElementById('dpMBritT').textContent = mBritT>0 ? fmtT(mBritT)+(mBritEst>0?' ~':'') : '—';
-  document.getElementById('dpMBritC').textContent = mBritC>0 ? mBritC.toLocaleString('pt-BR') : '—';
   document.getElementById('dpMMoagTotal').textContent = mMoagT>0 ? fmtT(mMoagT)+(mMesTemEst?' ~':'') : '—';
+
+  // Britador Móvel — soma do mês (t → kg) + Britagem Global (Fixa + Móvel)
+  (function() {
+    const mBritMovT_ton = Object.entries(BRIT_MOVEL)
+      .filter(([d]) => d.startsWith(mes))
+      .reduce((s,[,v]) => s + (v.prod||0), 0);
+    const mBritMovKg = mBritMovT_ton * 1000;
+    const elMov = document.getElementById('dpMBritMovT');
+    if (elMov) elMov.textContent = mBritMovKg > 0 ? fmtT(mBritMovKg) : '—';
+
+    const globalKg = mBritT + mBritMovKg;
+    const elGlobal = document.getElementById('dpMBritGlobalT');
+    const elGlobalSub = document.getElementById('dpMBritGlobalSub');
+    if (elGlobal) elGlobal.textContent = globalKg > 0 ? fmtT(globalKg) : '—';
+    if (elGlobalSub) {
+      const partes = [];
+      if (mBritT     > 0) partes.push('Fixa '  + fmtT(mBritT));
+      if (mBritMovKg > 0) partes.push('Móvel ' + fmtT(mBritMovKg));
+      elGlobalSub.textContent = partes.join(' + ');
+    }
+  })();
+
   // Aviso mensal
   const mMoagAvEl = document.getElementById('dpMoagMesAviso');
   if (mMoagAvEl) mMoagAvEl.innerHTML = mMesTemEst ? '<span class="aviso-est" style="margin-top:4px">⚠️ Inclui dias sem balança fechada</span>' : '';
   const setMLinha = (id,t,c) => {
     document.getElementById('dpM'+id+'T').textContent = t>0 ? fmtT(t) : '—';
-    document.getElementById('dpM'+id+'C').textContent = c>0 ? c.toLocaleString('pt-BR')+' conch' : '—';
   };
   setMLinha('L1',mL1T,mL1C); setMLinha('L2',mL2T,mL2C); setMLinha('L3',mL3T,mL3C);
 
@@ -2903,6 +3010,7 @@ function renderDashProd() {
         labels: dadosMes.map(r=>r.data.slice(8)+'/'+r.data.slice(5,7)),
         datasets: [
           {label:'Britagem', data:dadosMes.map(r=>kgToT(r.brit)), borderColor:'#e8a020', backgroundColor:'transparent', tension:0.3, pointRadius:2, borderWidth:1.5},
+          {label:'Britador Móvel', data:dadosMes.map(r=>(BRIT_MOVEL[r.data] ? BRIT_MOVEL[r.data].prod : null)), borderColor:'#ff7043', backgroundColor:'transparent', tension:0.3, pointRadius:2, borderWidth:1.5, spanGaps:true},
           {label:'L1', data:dadosMes.map(r=>kgToT(r.l1)), borderColor:'#4a90d9', backgroundColor:'transparent', tension:0.3, pointRadius:2, borderWidth:1.5},
           {label:'L2', data:dadosMes.map(r=>kgToT(r.l2)), borderColor:'#9b59b6', backgroundColor:'transparent', tension:0.3, pointRadius:2, borderWidth:1.5},
           {label:'L3', data:dadosMes.map(r=>kgToT(r.l3)), borderColor:'#4caf50', backgroundColor:'transparent', tension:0.3, pointRadius:2, borderWidth:1.5},
