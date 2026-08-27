@@ -290,10 +290,14 @@ body { background: #0f1117; color: #f0f0f0; font-family: 'Segoe UI', Arial, sans
 
   /* Aba Ouro Previsto — grids viram 2 colunas (KPIs) e 1 coluna (gráficos) */
   .ou-kpi-grid  { grid-template-columns: repeat(2, 1fr) !important; gap: 6px; }
+  .bm-kpi-grid  { grid-template-columns: repeat(2, 1fr) !important; gap: 6px; }
+  .bm-britprod-inner { grid-template-columns: 1fr 1fr !important; }
   .ou-kpi-grid2 { grid-template-columns: repeat(2, 1fr) !important; gap: 6px; }
   .ou-kpi-grid3 { grid-template-columns: repeat(2, 1fr) !important; gap: 6px; }
   .ou-bottom-grid { grid-template-columns: 1fr !important; gap: 8px; }
+  .bm-bottom-grid { grid-template-columns: 1fr !important; gap: 8px; }
   .dp-ouro-inner  { grid-template-columns: 1fr 1fr !important; }
+  .dp-estbrit-inner { grid-template-columns: 1fr 1fr !important; }
 
   /* Gráficos da aba Ouro — altura reduzida p/ caber na tela sem exigir muito scroll */
   .ou-chart-h { height: 220px !important; }
@@ -365,6 +369,7 @@ body { -webkit-overflow-scrolling: touch; }
     <button class="tab-btn active" id="btnUpload" onclick="goTab('upload',this)">📂 Carregar Planilha</button>
     <button class="tab-btn" id="btnProducao" onclick="goTab('producao',this)">📊 Dashboard Produção</button>
     <button class="tab-btn" id="btnOuro" onclick="goTab('ouro',this)">🥇 Ouro Previsto</button>
+    <button class="tab-btn" id="btnBalanco" onclick="goTab('balanco',this)">⚖️ Balanço de Massa</button>
     <button class="tab-btn" id="btnDash" onclick="goTab('dashboard',this)">📊 Overview DF</button>
     <button class="tab-btn" id="btnDiario" onclick="goTab('diario',this)">📅 Visualização Diária</button>
     <button class="tab-btn" id="btnRelat" onclick="goTab('relatorio',this)">📈 Relatório do Dia</button>
@@ -688,6 +693,28 @@ body { -webkit-overflow-scrolling: touch; }
         <div class="kpi-label">Recuperação Média</div>
         <div class="kpi-value" id="dpOuroRecup" style="color:#4caf50;font-size:18px">—</div>
         <div class="kpi-sub">ponderado por conchada</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Estoque Britado (via produção) — Britagem Fixa + Móvel produzido vs Moagem consumido -->
+  <div class="chart-card" style="margin-bottom:10px">
+    <div class="chart-title">📦 Estoque Britado — Acumulado do Mês <span style="font-size:10px;color:#666;font-weight:400">(britagem produzida − moagem consumida)</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:6px" class="dp-estbrit-inner">
+      <div class="kpi-card" style="--cor:#ff9800">
+        <div class="kpi-label">Britado (Fixa + Móvel)</div>
+        <div class="kpi-value" id="dpEstBritProd" style="color:#ff9800">—</div>
+        <div class="kpi-sub">produzido até o dia</div>
+      </div>
+      <div class="kpi-card" style="--cor:#B09D7C">
+        <div class="kpi-label">Consumido pela Moagem</div>
+        <div class="kpi-value" id="dpEstBritCons" style="color:#B09D7C">—</div>
+        <div class="kpi-sub">L1 + L2 + L3 até o dia</div>
+      </div>
+      <div class="kpi-card" style="--cor:#26a69a">
+        <div class="kpi-label">Estoque Britado</div>
+        <div class="kpi-value" id="dpEstBritSaldo" style="color:#26a69a">—</div>
+        <div class="kpi-sub" id="dpEstBritSaldoSub"></div>
       </div>
     </div>
   </div>
@@ -1031,6 +1058,119 @@ body { -webkit-overflow-scrolling: touch; }
   <div class="footer">🏭 Planta de Beneficiamento Santa Felicidade &nbsp;|&nbsp; Ouro Previsto &nbsp;|&nbsp; Ago/2026</div>
 </div>
 
+<!-- BALANÇO DE MASSA — Mina → Pátio de Alimentação do Britador -->
+<div class="tab-content" id="tab-balanco">
+  <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;background:#131620;border:1px solid #252838;border-radius:6px;padding:10px 16px;margin-bottom:10px">
+    <div class="filtro-group">
+      <label>Data Início</label>
+      <input type="date" id="bmIni" onchange="renderBalanco()">
+    </div>
+    <div class="filtro-group">
+      <label>Data Fim</label>
+      <input type="date" id="bmFim" onchange="renderBalanco()">
+    </div>
+    <button class="filtro-reset" onclick="resetBalanco()">↺ Mês inteiro</button>
+  </div>
+
+  <!-- KPIs -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px" class="bm-kpi-grid">
+    <div class="kpi-card" style="--cor:#4caf50">
+      <div class="kpi-label">Entrada — Mina → Pátio de Alimentação do Britador</div>
+      <div class="kpi-value" id="bmKpiEntrada" style="color:#4caf50">—</div>
+      <div class="kpi-sub" id="bmKpiEntradaSub"></div>
+    </div>
+    <div class="kpi-card" style="--cor:#e8a020">
+      <div class="kpi-label">Consumo — Britador</div>
+      <div class="kpi-value" id="bmKpiConsumo" style="color:#e8a020">—</div>
+      <div class="kpi-sub">total do período</div>
+    </div>
+    <div class="kpi-card" style="--cor:#4a90d9">
+      <div class="kpi-label">Saldo do Período</div>
+      <div class="kpi-value" id="bmKpiSaldo" style="color:#4a90d9">—</div>
+      <div class="kpi-sub" id="bmKpiSaldoSub">entrada − consumo</div>
+    </div>
+    <div class="kpi-card" style="--cor:#9b59b6">
+      <div class="kpi-label">Viagens — Pátio de Alimentação do Britador</div>
+      <div class="kpi-value" id="bmKpiViagens" style="color:#9b59b6">—</div>
+      <div class="kpi-sub">caminhões mina → pátio de alimentação</div>
+    </div>
+  </div>
+
+  <!-- Estoque por pilha (individual + geral) -->
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:10px" class="bm-kpi-grid">
+    <div class="kpi-card" style="--cor:#4caf50">
+      <div class="kpi-label">Estoque — Pátio Alimentação</div>
+      <div class="kpi-value" id="bmKpiEstPatio" style="color:#4caf50;font-size:20px">—</div>
+      <div class="kpi-sub" id="bmKpiEstPatioSub"></div>
+    </div>
+    <div class="kpi-card" style="--cor:#00bcd4">
+      <div class="kpi-label">Estoque — Pilha Formiguinha</div>
+      <div class="kpi-value" id="bmKpiEstFormig" style="color:#00bcd4;font-size:20px">—</div>
+      <div class="kpi-sub" id="bmKpiEstFormigSub"></div>
+    </div>
+    <div class="kpi-card" style="--cor:#9b59b6">
+      <div class="kpi-label">Estoque — Pátio C2</div>
+      <div class="kpi-value" id="bmKpiEstC2" style="color:#9b59b6;font-size:20px">—</div>
+      <div class="kpi-sub" id="bmKpiEstC2Sub"></div>
+    </div>
+    <div class="kpi-card" style="--cor:#ff7043">
+      <div class="kpi-label">Estoque — Pátio Britados</div>
+      <div class="kpi-value" id="bmKpiEstBrit" style="color:#ff7043;font-size:20px">—</div>
+      <div class="kpi-sub" id="bmKpiEstBritSub"></div>
+      <div class="kpi-sub" style="font-size:9px;color:#666">consumo: Britador Móvel</div>
+    </div>
+    <div class="kpi-card" style="--cor:#e8b923">
+      <div class="kpi-label">🌐 Estoque Geral — Total</div>
+      <div class="kpi-value" id="bmKpiEstGeral" style="color:#e8b923;font-size:20px">—</div>
+      <div class="kpi-sub" id="bmKpiEstGeralSub">4 pilhas somadas</div>
+    </div>
+  </div>
+
+  <!-- Estoque Britado — calculado via produção (Britagem Fixa+Móvel x Moagem), não via caminhão -->
+  <div class="chart-card" style="margin-bottom:10px">
+    <div class="chart-title">📦 Estoque de Material Britado <span style="font-size:10px;color:#666;font-weight:400">(britagem produzida − moagem consumida, no período)</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:6px" class="bm-britprod-inner">
+      <div class="kpi-card" style="--cor:#ff9800">
+        <div class="kpi-label">Britado (Fixa + Móvel)</div>
+        <div class="kpi-value" id="bmKpiBritProd" style="color:#ff9800">—</div>
+        <div class="kpi-sub">produzido no período</div>
+      </div>
+      <div class="kpi-card" style="--cor:#B09D7C">
+        <div class="kpi-label">Consumido pela Moagem</div>
+        <div class="kpi-value" id="bmKpiBritCons" style="color:#B09D7C">—</div>
+        <div class="kpi-sub">L1 + L2 + L3 no período</div>
+      </div>
+      <div class="kpi-card" style="--cor:#26a69a">
+        <div class="kpi-label">Estoque Britado</div>
+        <div class="kpi-value" id="bmKpiBritSaldo" style="color:#26a69a">—</div>
+        <div class="kpi-sub" id="bmKpiBritSaldoSub"></div>
+      </div>
+    </div>
+    <div style="height:220px;margin-top:10px"><canvas id="bmEstoqueBritChart"></canvas></div>
+  </div>
+
+  <!-- Estoque acumulado -->
+  <div class="chart-card" style="margin-bottom:10px">
+    <div class="chart-title">📦 Estoque no Pátio de Alimentação do Britador</div>
+    <div style="height:260px"><canvas id="bmEstoqueChart"></canvas></div>
+  </div>
+
+  <!-- Entrada x Consumo diário + Pizza de material -->
+  <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:10px" class="bm-bottom-grid">
+    <div class="chart-card">
+      <div class="chart-title">📊 Entrada (Mina) x Consumo (Britador) — Diário</div>
+      <div style="height:260px"><canvas id="bmDiarioChart"></canvas></div>
+    </div>
+    <div class="chart-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center">
+      <div class="chart-title">Material — % da Entrada</div>
+      <div style="height:180px;width:100%"><canvas id="bmPieMaterial"></canvas></div>
+      <div id="bmPieMaterialLegend" style="margin-top:8px;font-size:12px;line-height:1.8;text-align:center"></div>
+    </div>
+  </div>
+
+  <div class="footer">🏭 Planta de Beneficiamento Santa Felicidade &nbsp;|&nbsp; Balanço de Massa &nbsp;|&nbsp; Ago/2026</div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <button class="img-btn"  id="imgBtn"   onclick="gerarImagem()">📷 Salvar Imagem</button>
 <button class="print-btn" id="printBtn" onclick="abrirModalPDF()">🖨 Gerar PDF</button>
@@ -1074,7 +1214,8 @@ function goTab(name, btn) {
   else {
     // Garante que o botão certo fica ativo mesmo sem referência direta
     const btnMap = {upload:'btnUpload',producao:'btnProducao',dashboard:'btnDash',
-                    diario:'btnDiario',relatorio:'btnRelat',filtro:'btnFiltro',ouro:'btnOuro'};
+                    diario:'btnDiario',relatorio:'btnRelat',filtro:'btnFiltro',ouro:'btnOuro',
+                    balanco:'btnBalanco'};
     const b = document.getElementById(btnMap[name]);
     if(b) b.classList.add('active');
   }
@@ -1084,6 +1225,7 @@ function goTab(name, btn) {
   if(name==='producao')  renderProducao();
   if(name==='filtro')    initFiltro();
   if(name==='ouro')      resetOuro();
+  if(name==='balanco')   resetBalanco();
 }
 
 /* ── Seção ── */
@@ -1151,7 +1293,7 @@ function renderDash() {
     const tb = hp + hs;
 
     // Conta ocorrências REAIS a partir de R_MOT (lista de eventos por dia)
-    // R_MOT[sec][data] = [[motivo, horas], ...] — cada item = 1 ocorrência
+    // R_MOT[sec][data] = [[motivo, minutos], ...] — cada item = 1 ocorrência
     let nOcorr = 0;
     const rmot = (typeof R_MOT !== 'undefined' ? R_MOT[secKey] : null) || {};
     Object.values(rmot).forEach(lista => {
@@ -1466,24 +1608,37 @@ function renderDiario() {
   rows.sort((a,b)=>a.data.localeCompare(b.data)||a.secao.localeCompare(b.secao));
 
   // KPIs — soma prod e parada já normalizadas
-  let hpFilt=0, hsFilt=0, nParadas=0;
+  let hpFilt=0, hsFilt=0;
   const secDailies = [];
-  if(sec==='todas'||sec==='brit') secDailies.push(DADOS.brit_daily);
-  if(sec==='todas'||sec==='l1')   secDailies.push(DADOS.l1_daily);
-  if(sec==='todas'||sec==='l2')   secDailies.push(DADOS.l2_daily);
-  if(sec==='todas'||sec==='l3')   secDailies.push(DADOS.l3_daily);
+  const secoesAtivas = [];
+  if(sec==='todas'||sec==='brit') { secDailies.push(DADOS.brit_daily); secoesAtivas.push('brit'); }
+  if(sec==='todas'||sec==='l1')   { secDailies.push(DADOS.l1_daily);   secoesAtivas.push('l1'); }
+  if(sec==='todas'||sec==='l2')   { secDailies.push(DADOS.l2_daily);   secoesAtivas.push('l2'); }
+  if(sec==='todas'||sec==='l3')   { secDailies.push(DADOS.l3_daily);   secoesAtivas.push('l3'); }
 
   secDailies.forEach(daily => {
-    let prevParada = false;
     Object.entries(daily).sort().forEach(([d,v]) => {
       if(ini && d<ini) return;
       if(fim && d>fim) return;
       const n = norm24(v);
       hpFilt += n.prod;
       hsFilt += n.parada;
-      const isParada = n.parada > 0 && n.prod === 0;
-      if(isParada && !prevParada) nParadas++;
-      prevParada = isParada;
+    });
+  });
+
+  // Número real de paradas: conta eventos individuais do R_MOT (não "dia inteiro parado",
+  // que quase nunca acontece — sempre há alguma produção misturada no mesmo dia)
+  let nParadas = 0;
+  secoesAtivas.forEach(key => {
+    const rmot = (typeof R_MOT !== 'undefined' ? R_MOT[key] : null) || {};
+    Object.entries(rmot).forEach(([d, lista]) => {
+      if (ini && d<ini) return;
+      if (fim && d>fim) return;
+      if (Array.isArray(lista)) {
+        lista.forEach(item => {
+          if (Array.isArray(item) && item.length>=2 && item[1]>0) nParadas++;
+        });
+      }
     });
   });
 
@@ -1739,6 +1894,11 @@ function handleFile(f) {
 
         parada._hasdata = hasdata;
       });
+
+      // Exporta os eventos recém-parseados para o R_MOT global — usado por
+      // MTBF/MTTR do Overview DF, Relatório do Dia e Filtro de Impactantes.
+      // (brit_mots/l1_mots/l2_mots/l3_mots já foram preenchidos linha a linha acima)
+      R_MOT = { brit: brit_mots, l1: l1_mots, l2: l2_mots, l3: l3_mots };
 
       function buildDaily(parada_map, has_data_map) {
         const out = {};
@@ -2103,6 +2263,100 @@ function handleFile(f) {
         BRIT_MOVEL = out;
       })();
 
+      // ── Movimentação Mina — apontamentos de motoristas (viagens de caminhão) ──
+      // Rastreia entrada/saída de 4 pilhas: Pátio de Alimentação (mina->britador),
+      // Pilha Formiguinha e Pátio C2 (estoque de minério, sem consumo por caminhão) e
+      // Pátio Britados (produto britado, entrada e saída mais mistas).
+      (function parseMovimentacaoMina() {
+        const outPatio  = {}; // data -> {ton, viagens, material:{produto:ton}}  (só entrada, mina->pátio)
+        const outFormig = {}; // data -> {entrada, saida, viagensIn, viagensOut}
+        const outC2     = {}; // data -> {entrada, saida, viagensIn, viagensOut}
+        const outBrit   = {}; // data -> {entrada, saida, viagensIn, viagensOut}
+        const ws = wb.Sheets['Movimentação Mina'];
+        if (!ws) { MINA_ENTRADA = outPatio; MINA_FORMIGUINHA = outFormig; MINA_PATIOC2 = outC2; MINA_BRITADOS = outBrit; return; }
+
+        const PATIO_ALIMENTACAO = '04 - ESTOQUE MINERIO - PATIO DE ALIMENTACAO';
+        const PILHA_FORMIGUINHA = '04 - ESTOQUE MINERIO - PILHA FORMIGUINHA';
+        const PATIO_C2          = '04 - ESTOQUE MINERIO - PATIO C2';
+        const PATIO_BRITADOS    = '05 - PATIO BRITADOS - PATIO BRITADOS';
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+
+        function parseDataBR(v) {
+          // Aceita string 'dd/mm/yyyy HH:MM:SS' ou Date já parseado pelo SheetJS
+          if (!v) return null;
+          if (v instanceof Date) {
+            const y=v.getFullYear(); if(y<2000||y>2100) return null;
+            return y+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0');
+          }
+          if (typeof v === 'string') {
+            const parte = v.trim().split(' ')[0];
+            const m = parte.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+            if (!m) return null;
+            const [,dd,mm,yyyy] = m;
+            return yyyy+'-'+mm.padStart(2,'0')+'-'+dd.padStart(2,'0');
+          }
+          return null;
+        }
+
+        rows.slice(1).forEach(r => {
+          const localCarga    = cleanStr(r[5]);
+          const localDescarga = cleanStr(r[11]);
+          const data = parseDataBR(r[9]) || parseDataBR(r[2]);
+          if (!data) return;
+          const ton = typeof r[14] === 'number' ? r[14] : 0;
+          const produto = cleanStr(r[7]) || 'N/D';
+
+          // ── Pátio de Alimentação: só entrada, só quando vem de local com "MINA" ──
+          if (localCarga.toUpperCase().includes('MINA') && localDescarga === PATIO_ALIMENTACAO) {
+            if (!outPatio[data]) outPatio[data] = { ton:0, viagens:0, material:{} };
+            outPatio[data].ton += ton;
+            outPatio[data].viagens += 1;
+            outPatio[data].material[produto] = (outPatio[data].material[produto]||0) + ton;
+          }
+
+          // ── Pilha Formiguinha: entrada (qualquer origem) e saída (caminhão saindo de lá) ──
+          if (localDescarga === PILHA_FORMIGUINHA) {
+            if (!outFormig[data]) outFormig[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0 };
+            outFormig[data].entrada += ton;
+            outFormig[data].viagensIn += 1;
+          }
+          if (localCarga === PILHA_FORMIGUINHA) {
+            if (!outFormig[data]) outFormig[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0 };
+            outFormig[data].saida += ton;
+            outFormig[data].viagensOut += 1;
+          }
+
+          // ── Pátio C2: entrada (qualquer origem) e saída (caminhão saindo de lá) ──
+          if (localDescarga === PATIO_C2) {
+            if (!outC2[data]) outC2[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0 };
+            outC2[data].entrada += ton;
+            outC2[data].viagensIn += 1;
+          }
+          if (localCarga === PATIO_C2) {
+            if (!outC2[data]) outC2[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0 };
+            outC2[data].saida += ton;
+            outC2[data].viagensOut += 1;
+          }
+
+          // ── Pátio Britados: entrada (qualquer origem) e saída (caminhão saindo de lá) ──
+          if (localDescarga === PATIO_BRITADOS) {
+            if (!outBrit[data]) outBrit[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0 };
+            outBrit[data].entrada += ton;
+            outBrit[data].viagensIn += 1;
+          }
+          if (localCarga === PATIO_BRITADOS) {
+            if (!outBrit[data]) outBrit[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0 };
+            outBrit[data].saida += ton;
+            outBrit[data].viagensOut += 1;
+          }
+        });
+
+        MINA_ENTRADA     = outPatio;
+        MINA_FORMIGUINHA = outFormig;
+        MINA_PATIOC2     = outC2;
+        MINA_BRITADOS    = outBrit;
+      })();
+
       // Atualiza datas disponíveis no seletor do relatório
       const allDates = [...new Set([
         ...Object.keys(brit_daily),
@@ -2329,6 +2583,12 @@ let R_KPI = { brit:{}, l1:{}, l2:{}, l3:{} };
 let PROD_PLANTA = {resumo:[], prod_linha:{brit:{},l1:{},l2:{},l3:{}}, material_tot:{brit:{},l1:{},l2:{},l3:{}}, material_dia:{brit:{},l1:{},l2:{},l3:{}}, material_dia_ton:{brit:{},l1:{},l2:{},l3:{}}, balanca:{brit:{},l1:{},l2:{},l3:{}}, ouro:{brit:{},l1:{},l2:{},l3:{}}, ouro_hora:{brit:{},l1:{},l2:{},l3:{}}, ouro_resumo:{}};
 // Britador Móvel — aba nova e independente, sem balança (produção sempre calculada)
 let BRIT_MOVEL = {};
+// Movimentação Mina — viagens de caminhão MINA -> Pátio de Alimentação, por dia
+let MINA_ENTRADA = {};
+// Pilha Formiguinha e Pátio Britados — entrada/saída de caminhões, por dia
+let MINA_FORMIGUINHA = {};
+let MINA_PATIOC2 = {};
+let MINA_BRITADOS = {};
 
 /* ══════════════════════════════════════════════════════════════
    DASHBOARD PRODUÇÃO — Diário + Mensal + Impactantes
@@ -2671,6 +2931,236 @@ function renderOuro() {
   pizzaMaterial('ouPieMes', 'ouPieMesLegend', matMesComb);
 }
 
+// ══════════════════════════════════════════════════════════════
+// ABA BALANÇO DE MASSA — Mina → Pátio de Alimentação do Britador
+// ══════════════════════════════════════════════════════════════
+function resetBalanco() {
+  const datas = Object.keys(MINA_ENTRADA).sort();
+  const iniEl = document.getElementById('bmIni');
+  const fimEl = document.getElementById('bmFim');
+  if (datas.length) {
+    if (iniEl) iniEl.value = datas[0];
+    if (fimEl) fimEl.value = datas[datas.length-1];
+  }
+  renderBalanco();
+}
+
+function renderBalanco() {
+  if (!dadosCarregados()) return;
+  const iniEl = document.getElementById('bmIni');
+  const fimEl = document.getElementById('bmFim');
+  const periodoIni = iniEl ? iniEl.value : '';
+  const periodoFim = fimEl ? fimEl.value : '';
+
+  // Une todas as datas com entrada de mina OU consumo de britador, dentro do período
+  const todasDatas = [...new Set([
+    ...Object.keys(MINA_ENTRADA),
+    ...PROD_PLANTA.resumo.map(r=>r.data),
+    ...Object.keys(PROD_PLANTA.prod_linha.brit||{}),
+  ])]
+    .filter(d => (!periodoIni || d>=periodoIni) && (!periodoFim || d<=periodoFim))
+    .sort();
+
+  // ── Série diária: entrada (t), consumo britador (t), saldo, estoque acumulado ──
+  let estoqueAcumulado = 0;
+  const serieEntrada = [], serieConsumo = [], serieEstoque = [];
+  let totalEntrada = 0, totalConsumo = 0, totalViagens = 0;
+  const matComb = {};
+
+  // Estoque Britado via produção: Britagem (Fixa+Móvel) x Moagem (L1+L2+L3)
+  let estoqueBritAcum = 0;
+  const serieBritProd = [];
+  let totalBritadoProd = 0, totalMoagemCons = 0;
+
+  todasDatas.forEach(d => {
+    const mina = MINA_ENTRADA[d] || null;
+    const entradaDia = mina ? mina.ton : 0;
+    const consumoDiaKg = (typeof prodEfetiva === 'function') ? prodEfetiva('brit', d).total : 0;
+    const consumoDia = consumoDiaKg / 1000; // kg -> t
+
+    estoqueAcumulado += entradaDia - consumoDia;
+
+    serieEntrada.push(+entradaDia.toFixed(1));
+    serieConsumo.push(+consumoDia.toFixed(1));
+    serieEstoque.push(+estoqueAcumulado.toFixed(1));
+
+    totalEntrada += entradaDia;
+    totalConsumo += consumoDia;
+    if (mina) {
+      totalViagens += mina.viagens;
+      Object.entries(mina.material).forEach(([mat,v]) => { matComb[mat] = (matComb[mat]||0) + v; });
+    }
+
+    // Britado (Fixa + Móvel) produzido no dia
+    let britadoDia = consumoDia; // já calculado acima (Britagem fixa, kg->t)
+    const bm = BRIT_MOVEL[d];
+    if (bm) britadoDia += (bm.prod || 0);
+    // Moagem (L1+L2+L3) consumida no dia
+    let moagemDia = 0;
+    ['l1','l2','l3'].forEach(k => {
+      const ef = (typeof prodEfetiva === 'function') ? prodEfetiva(k, d) : {total:0};
+      moagemDia += (ef.total || 0) / 1000;
+    });
+    estoqueBritAcum += britadoDia - moagemDia;
+    serieBritProd.push(+estoqueBritAcum.toFixed(1));
+    totalBritadoProd += britadoDia;
+    totalMoagemCons  += moagemDia;
+  });
+
+  const saldoPeriodo = totalEntrada - totalConsumo;
+  const saldoBritProd = totalBritadoProd - totalMoagemCons;
+
+  // ── KPIs ──
+  const elEntrada    = document.getElementById('bmKpiEntrada');
+  const elEntradaSub = document.getElementById('bmKpiEntradaSub');
+  const elConsumo    = document.getElementById('bmKpiConsumo');
+  const elSaldo      = document.getElementById('bmKpiSaldo');
+  const elSaldoSub   = document.getElementById('bmKpiSaldoSub');
+  const elViagens    = document.getElementById('bmKpiViagens');
+
+  if (elEntrada)    elEntrada.textContent    = totalEntrada>0 ? fmtT(totalEntrada*1000) : '—';
+  if (elEntradaSub) elEntradaSub.textContent = todasDatas.length + ' dia(s) no período';
+  if (elConsumo)    elConsumo.textContent    = totalConsumo>0 ? fmtT(totalConsumo*1000) : '—';
+  if (elViagens)    elViagens.textContent    = totalViagens>0 ? totalViagens.toLocaleString('pt-BR') : '—';
+  if (elSaldo) {
+    elSaldo.textContent = fmtT(Math.abs(saldoPeriodo)*1000);
+    elSaldo.style.color = saldoPeriodo >= 0 ? '#4caf50' : '#f44336';
+  }
+  if (elSaldoSub) elSaldoSub.textContent = saldoPeriodo >= 0 ? 'estoque aumentando' : 'estoque diminuindo';
+
+  // ── Estoque por pilha (Pátio Alimentação, Formiguinha, Britados) + Geral ──
+  // consumoExtra: função opcional que retorna consumo adicional por dia (ex: Britador Móvel/Lokotrack)
+  function saldoPilha(fonte, consumoExtra) {
+    let saldo = 0;
+    todasDatas.forEach(d => {
+      const v = fonte[d];
+      if (v) saldo += (v.entrada||0) - (v.saida||0);
+      if (consumoExtra) saldo -= (consumoExtra(d) || 0);
+    });
+    return saldo;
+  }
+  const saldoFormig = saldoPilha(MINA_FORMIGUINHA);
+  const saldoC2     = saldoPilha(MINA_PATIOC2);
+  // Pátio Britados também é consumido pelo Britador Móvel (Lokotrack), que processa esse estoque
+  const saldoBrit   = saldoPilha(MINA_BRITADOS, d => BRIT_MOVEL[d] ? (BRIT_MOVEL[d].prod||0) : 0);
+  const saldoGeral  = saldoPeriodo + saldoFormig + saldoC2 + saldoBrit;
+
+  function setEstoqueKPI(elId, subId, valor, corPositiva) {
+    const el = document.getElementById(elId);
+    const sub = document.getElementById(subId);
+    if (el) {
+      el.textContent = fmtT(Math.abs(valor)*1000);
+      el.style.color = valor >= 0 ? corPositiva : '#f44336';
+    }
+    if (sub) sub.textContent = valor >= 0 ? 'aumentando' : 'diminuindo';
+  }
+  setEstoqueKPI('bmKpiEstPatio',  'bmKpiEstPatioSub',  saldoPeriodo, '#4caf50');
+  setEstoqueKPI('bmKpiEstFormig', 'bmKpiEstFormigSub', saldoFormig,  '#00bcd4');
+  setEstoqueKPI('bmKpiEstC2',     'bmKpiEstC2Sub',     saldoC2,      '#9b59b6');
+  setEstoqueKPI('bmKpiEstBrit',   'bmKpiEstBritSub',   saldoBrit,    '#ff7043');
+  const elGeral = document.getElementById('bmKpiEstGeral');
+  if (elGeral) {
+    elGeral.textContent = fmtT(Math.abs(saldoGeral)*1000);
+    elGeral.style.color = saldoGeral >= 0 ? '#e8b923' : '#f44336';
+  }
+
+  // ── KPIs — Estoque Britado via Produção ──
+  const elBritProd    = document.getElementById('bmKpiBritProd');
+  const elBritCons     = document.getElementById('bmKpiBritCons');
+  const elBritSaldo    = document.getElementById('bmKpiBritSaldo');
+  const elBritSaldoSub = document.getElementById('bmKpiBritSaldoSub');
+  if (elBritProd) elBritProd.textContent = totalBritadoProd>0 ? fmtT(totalBritadoProd*1000) : '—';
+  if (elBritCons) elBritCons.textContent = totalMoagemCons>0  ? fmtT(totalMoagemCons*1000)  : '—';
+  if (elBritSaldo) {
+    elBritSaldo.textContent = fmtT(Math.abs(saldoBritProd)*1000);
+    elBritSaldo.style.color = saldoBritProd >= 0 ? '#26a69a' : '#f44336';
+  }
+  if (elBritSaldoSub) elBritSaldoSub.textContent = saldoBritProd >= 0 ? 'acumulando' : 'consumindo mais do que produz';
+
+  // ── Gráfico de Estoque Britado via Produção (linha) ──
+  dc('bmEstoqueBritChart');
+  if (todasDatas.length) {
+    CI['bmEstoqueBritChart'] = new Chart(document.getElementById('bmEstoqueBritChart'), {
+      type: 'line',
+      data: {
+        labels: todasDatas.map(d=>d.slice(8,10)+'/'+d.slice(5,7)),
+        datasets: [{
+          label: 'Estoque britado (t)', data: serieBritProd,
+          borderColor: '#ff9800', backgroundColor: 'rgba(255,152,0,0.12)', fill: true,
+          tension: 0.25, pointRadius: 2, borderWidth: 2
+        }]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins: {
+          legend: { display:false },
+          tooltip: { backgroundColor:'#131620', callbacks:{ label:c=>`Estoque britado: ${c.parsed.y.toLocaleString('pt-BR')} t` } }
+        },
+        scales: {
+          x: { ticks:{color:'#ccc',font:{size:10}}, grid:{display:false} },
+          y: { ticks:{color:'#ddd',font:{size:10}}, grid:{color:'rgba(255,255,255,0.06)'}, title:{display:true,text:'toneladas',color:'#888',font:{size:10}} }
+        }
+      }
+    });
+  }
+
+  // ── Gráfico de Estoque Acumulado (linha) ──
+  dc('bmEstoqueChart');
+  if (todasDatas.length) {
+    CI['bmEstoqueChart'] = new Chart(document.getElementById('bmEstoqueChart'), {
+      type: 'line',
+      data: {
+        labels: todasDatas.map(d=>d.slice(8,10)+'/'+d.slice(5,7)),
+        datasets: [{
+          label: 'Estoque acumulado (t)', data: serieEstoque,
+          borderColor: '#4a90d9', backgroundColor: 'rgba(74,144,217,0.12)', fill: true,
+          tension: 0.25, pointRadius: 2, borderWidth: 2
+        }]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins: {
+          legend: { display:false },
+          tooltip: { backgroundColor:'#131620', callbacks:{ label:c=>`Estoque: ${c.parsed.y.toLocaleString('pt-BR')} t` } }
+        },
+        scales: {
+          x: { ticks:{color:'#ccc',font:{size:10}}, grid:{display:false} },
+          y: { ticks:{color:'#ddd',font:{size:10}}, grid:{color:'rgba(255,255,255,0.06)'}, title:{display:true,text:'toneladas',color:'#888',font:{size:10}} }
+        }
+      }
+    });
+  }
+
+  // ── Gráfico Entrada x Consumo diário (barras agrupadas) ──
+  dc('bmDiarioChart');
+  if (todasDatas.length) {
+    CI['bmDiarioChart'] = new Chart(document.getElementById('bmDiarioChart'), {
+      type: 'bar',
+      data: {
+        labels: todasDatas.map(d=>d.slice(8,10)+'/'+d.slice(5,7)),
+        datasets: [
+          { label:'Entrada (Mina)', data:serieEntrada, backgroundColor:'#4caf50', borderRadius:2 },
+          { label:'Consumo (Britador)', data:serieConsumo, backgroundColor:'#e8a020', borderRadius:2 },
+        ]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins: {
+          legend: { display:true, position:'top', labels:{color:'#ccc',font:{size:10},boxWidth:12} },
+          tooltip: { backgroundColor:'#131620', callbacks:{ label:c=>`${c.dataset.label}: ${c.parsed.y.toLocaleString('pt-BR')} t` } }
+        },
+        scales: {
+          x: { ticks:{color:'#ccc',font:{size:10}}, grid:{display:false} },
+          y: { ticks:{color:'#ddd',font:{size:10}}, grid:{color:'rgba(255,255,255,0.06)'} }
+        }
+      }
+    });
+  }
+
+  // ── Pizza de material — composição da entrada no período ──
+  pizzaMaterial('bmPieMaterial', 'bmPieMaterialLegend', matComb);
+}
+
 function resetDashProd() {
   // Vai para o último dia com QUALQUER dado (balança OU conchadas OU impactantes)
   const datasBalanca = PROD_PLANTA.resumo.filter(r=>r.total>0||r.brit>0).map(r=>r.data);
@@ -2883,6 +3373,37 @@ function renderDashProd() {
     if (elSub)  elSub.textContent  = ouroDia>0 ? (estimandoOuro ? '⚠ inclui estimativa (turno aberto)' : 'totalizador da balança') : '';
     if (elTeor) elTeor.textContent = teorPeso>0  ? (teorSoma/teorPeso).toFixed(2)+' g/t'   : '—';
     if (elRec)  elRec.textContent  = recupPeso>0 ? (recupSoma/recupPeso*100).toFixed(1)+'%' : '—';
+  })();
+
+  // Estoque Britado — Britagem (Fixa+Móvel) produzida vs Moagem consumida,
+  // acumulado desde o dia 1 do mês até a data selecionada acima.
+  (function estoqueBritadoDash() {
+    const mesAtual = data.slice(0,7);           // "2026-08"
+    const diaAtual = parseInt(data.slice(8,10)); // 1..31
+    let totalBritado = 0, totalMoagem = 0;
+    for (let dia=1; dia<=diaAtual; dia++) {
+      const d = mesAtual + '-' + String(dia).padStart(2,'0');
+      const brEf = (typeof prodEfetiva === 'function') ? prodEfetiva('brit', d) : {total:0};
+      totalBritado += (brEf.total || 0) / 1000; // kg -> t
+      const bm = BRIT_MOVEL[d];
+      if (bm) totalBritado += (bm.prod || 0);
+      ['l1','l2','l3'].forEach(k => {
+        const ef = (typeof prodEfetiva === 'function') ? prodEfetiva(k, d) : {total:0};
+        totalMoagem += (ef.total || 0) / 1000;
+      });
+    }
+    const saldo = totalBritado - totalMoagem;
+    const elProd     = document.getElementById('dpEstBritProd');
+    const elCons     = document.getElementById('dpEstBritCons');
+    const elSaldo    = document.getElementById('dpEstBritSaldo');
+    const elSaldoSub = document.getElementById('dpEstBritSaldoSub');
+    if (elProd) elProd.textContent = totalBritado>0 ? fmtT(totalBritado*1000) : '—';
+    if (elCons) elCons.textContent = totalMoagem>0  ? fmtT(totalMoagem*1000)  : '—';
+    if (elSaldo) {
+      elSaldo.textContent = fmtT(Math.abs(saldo)*1000);
+      elSaldo.style.color = saldo >= 0 ? '#26a69a' : '#f44336';
+    }
+    if (elSaldoSub) elSaldoSub.textContent = saldo >= 0 ? 'acumulando' : 'consumindo mais do que produz';
   })();
 
   // DF por seção
@@ -3100,7 +3621,8 @@ function renderDashProd() {
   Object.entries(SECOES).forEach(([key,nome]) => {
     if (filtSecao !== 'todas' && filtSecao !== key) return;
     const lista = (R_MOT[key]||{})[data] || [];
-    lista.forEach(([motivo,horas]) => {
+    lista.forEach(([motivo,mins]) => {
+      const horas = mins / 60; // R_MOT guarda minutos, esta tela trabalha em horas
       const p = motivo.split(' ∥ ');
       impactantes.push({secao:key, secaoNome:nome, tipo:(p[0]||'').trim(), equip:(p[1]||'').trim(), desc:(p[2]||'').trim(), horas});
     });
@@ -3224,7 +3746,8 @@ function getAllEventos() {
   Object.entries(SECOES).forEach(([key, nome]) => {
     const rmot = R_MOT[key] || {};
     Object.entries(rmot).forEach(([data, lista]) => {
-      (lista||[]).forEach(([motivo, horas]) => {
+      (lista||[]).forEach(([motivo, mins]) => {
+        const horas = mins / 60; // R_MOT guarda minutos
         if (!motivo || horas <= 0) return;
         const partes = motivo.split(' ∥ ');
         const tipo  = (partes[0]||'').trim() || 'Outros';
@@ -3575,7 +4098,7 @@ function renderRelatorio() {
   }
 
   // ── KPI Maior Impactante + Ocorrências ──
-  const mots = (R_MOT[linha]||{})[d] || [];
+  const mots = ((R_MOT[linha]||{})[d] || []).slice().sort((a,b) => (b[1]||0)-(a[1]||0));
   const top  = mots.length ? mots[0] : null;
   const rTop = document.getElementById('rKpiTop');
   const rTopH= document.getElementById('rKpiTopH');
@@ -3583,7 +4106,7 @@ function renderRelatorio() {
   if (top) {
     const p = top[0].split(' ∥ ');
     if(rTop) rTop.textContent = (p[1]||p[0]||'—').trim() + ' — ' + (p[2]||'').trim();
-    if(rTopH) rTopH.textContent = fmtH(top[1]) + ' parada';
+    if(rTopH) rTopH.textContent = fmtH(top[1]/60) + ' parada'; // R_MOT guarda minutos
   } else {
     if(rTop) rTop.textContent = '—';
     if(rTopH) rTopH.textContent = '';
