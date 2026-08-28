@@ -87,6 +87,7 @@ body { background: #0f1117; color: #f0f0f0; font-family: 'Segoe UI', Arial, sans
 .footer { text-align:right; font-size:11px; color:#777; margin-top:8px; }
 .print-btn { position:fixed; bottom:20px; right:20px; z-index:999; padding:10px 20px; background:#e8a020; color:#0f1117; border:none; border-radius:4px; font-weight:700; font-size:12px; cursor:pointer; display:none; box-shadow:0 2px 8px rgba(0,0,0,0.5); }
 .img-btn  { position:fixed; bottom:20px; right:140px; z-index:999; padding:10px 20px; background:#1e2235; color:#e8a020; border:1px solid #e8a020; border-radius:4px; font-weight:700; font-size:12px; cursor:pointer; display:none; box-shadow:0 2px 8px rgba(0,0,0,0.5); }
+.refresh-timer { position:fixed; bottom:20px; left:20px; z-index:999; padding:8px 14px; background:#1e2235; color:#888; border:1px solid #252838; border-radius:4px; font-weight:600; font-size:11px; box-shadow:0 2px 8px rgba(0,0,0,0.5); }
 .help-btn { display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; border-radius:50%; background:#1e2235; border:1px solid #555; color:#e8a020; font-size:9px; font-weight:700; cursor:pointer; margin-left:4px; vertical-align:middle; }
 .help-btn:hover { background:#e8a020; color:#0f1117; }
 #helpTooltip { display:none; position:fixed; z-index:9999; max-width:300px; background:#131620; border:1px solid #e8a020; border-radius:6px; padding:12px 14px; box-shadow:0 6px 24px rgba(0,0,0,0.8); pointer-events:none; }
@@ -103,7 +104,7 @@ body { background: #0f1117; color: #f0f0f0; font-family: 'Segoe UI', Arial, sans
     width: 100% !important;
     overflow: visible !important;
   }
-  .header, .print-btn, .secao-bar, .help-btn, #helpTooltip,
+  .header, .print-btn, .refresh-timer, .secao-bar, .help-btn, #helpTooltip,
   #pdfModal, .filtros-bar, .filtro-group, .filtro-reset { display:none !important; }
   /* Modo ABA */
   body.print-aba .tab-content { display:none !important; }
@@ -201,6 +202,7 @@ body { background: #0f1117; color: #f0f0f0; font-family: 'Segoe UI', Arial, sans
   /* Botões fixos PDF/Imagem — menores */
   .print-btn { padding: 8px 12px; font-size: 10px; bottom: 10px; right: 10px; }
   .img-btn   { padding: 8px 12px; font-size: 10px; bottom: 10px; right: 110px; }
+  .refresh-timer { padding: 6px 10px; font-size: 9px; bottom: 10px; left: 10px; }
 
   /* Imp header */
   .imp-header { font-size: 12px; flex-wrap: wrap; gap: 4px; }
@@ -316,6 +318,7 @@ body { background: #0f1117; color: #f0f0f0; font-family: 'Segoe UI', Arial, sans
   /* Botões fixos PDF/Imagem — respeita área segura de celulares com notch/gestos */
   .print-btn { bottom: calc(10px + env(safe-area-inset-bottom)); }
   .img-btn   { bottom: calc(10px + env(safe-area-inset-bottom)); }
+  .refresh-timer { bottom: calc(10px + env(safe-area-inset-bottom)); }
 }
 
 /* Toque mais suave/nativo em qualquer tela sensível ao toque */
@@ -1174,6 +1177,7 @@ body { -webkit-overflow-scrolling: touch; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <button class="img-btn"  id="imgBtn"   onclick="gerarImagem()">📷 Salvar Imagem</button>
 <button class="print-btn" id="printBtn" onclick="abrirModalPDF()">🖨 Gerar PDF</button>
+<div class="refresh-timer" id="refreshTimer">🔄 5:00</div>
 
 <script>
 /* ══ DADOS ══ */
@@ -1226,6 +1230,23 @@ function goTab(name, btn) {
   if(name==='filtro')    initFiltro();
   if(name==='ouro')      resetOuro();
   if(name==='balanco')   resetBalanco();
+}
+
+// Re-renderiza a aba atualmente aberta com dados novos, SEM mexer em nenhum
+// filtro/data que o usuário já tenha escolhido (usado no refresh automático).
+// Diferente de goTab(): nunca chama as versões "reset/init" (que reiniciam
+// datas para o padrão) — só as versões "render" que leem o que já está selecionado.
+function refreshCurrentTab() {
+  const ativo = document.querySelector('.tab-content.active');
+  if (!ativo) return;
+  const name = ativo.id.replace('tab-', '');
+  if      (name === 'dashboard')  renderDash();
+  else if (name === 'diario')     renderDiario();
+  else if (name === 'relatorio')  renderRelatorio();
+  else if (name === 'producao')   renderDashProd();
+  else if (name === 'filtro')     renderFiltro();
+  else if (name === 'ouro')       renderOuro();
+  else if (name === 'balanco')    renderBalanco();
 }
 
 /* ── Seção ── */
@@ -1690,7 +1711,7 @@ dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remov
 document.getElementById('fileInput').addEventListener('change',e=>{if(e.target.files[0])handleFile(e.target.files[0]);});
 function setStatus(m,c){const el=document.getElementById('uploadStatus');el.className='upload-status '+c;el.textContent=m;}
 
-function handleFile(f) {
+function handleFile(f, keepView) {
   setStatus('⏳ Lendo planilha...','s-loading');
   const reader = new FileReader();
   reader.onload = e => {
@@ -2392,10 +2413,12 @@ function handleFile(f) {
       setStatus(`✅ "${f.name}" — ${nDias} dias (${primeiro} → ${ultimo})`, 's-ok');
       document.getElementById('printBtn').style.display = 'block';
       document.getElementById('imgBtn').style.display   = 'block';
-      // Força navegação para Dashboard Produção após upload
-      // Usa delay maior para garantir que dados e DOM estejam completamente prontos
+      // Upload manual/primeira carga: força navegação para Dashboard Produção.
+      // Refresh automático (keepView=true): mantém a aba e os filtros que o
+      // usuário já tiver aberto, só atualiza os números com o dado novo.
       setTimeout(() => {
-        goTab('producao');
+        if (keepView) refreshCurrentTab();
+        else goTab('producao');
       }, 150);
 
     } catch(err) {
@@ -4471,9 +4494,9 @@ function renderRelatorio() {
 
 
 
-<!-- AUTO_LOAD: busca planilha.xlsx do mesmo repositório ao abrir -->
+<!-- AUTO_LOAD: busca planilha.xlsx do mesmo repositório ao abrir, e a cada 5 min -->
 <script>
-(function autoLoad() {
+function carregarPlanilhaAuto(keepView) {
   if (!window.location.protocol.startsWith('http')) return;
 
   // Cache-buster: força o Cloudflare/browser a não usar versão cacheada
@@ -4486,12 +4509,37 @@ function renderRelatorio() {
     .then(function(buf) {
       var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       var file = new File([blob], 'planilha.xlsx', { type: blob.type });
-      handleFile(file);
+      handleFile(file, keepView);
     })
     .catch(function(err) {
       console.info('[autoLoad] ' + err.message + ' — use o botão de upload.');
     });
-})();
+}
+
+// Primeira carga ao abrir a página (força ir para o Dashboard Produção)
+carregarPlanilhaAuto(false);
+
+// Atualização automática a cada 5 minutos — mantém a aba e os filtros abertos,
+// só atualiza os números. Útil para telas/monitores fixos na planta.
+var REFRESH_SECS = 5 * 60;
+var _refreshCountdown = REFRESH_SECS;
+
+function tickRefreshTimer() {
+  var el = document.getElementById('refreshTimer');
+  if (!el) return;
+  var mm = Math.floor(_refreshCountdown / 60);
+  var ss = _refreshCountdown % 60;
+  el.textContent = '🔄 próxima em ' + mm + ':' + String(ss).padStart(2, '0');
+  _refreshCountdown--;
+  if (_refreshCountdown < 0) _refreshCountdown = REFRESH_SECS;
+}
+tickRefreshTimer();
+setInterval(tickRefreshTimer, 1000);
+
+setInterval(function() {
+  carregarPlanilhaAuto(true);
+  _refreshCountdown = REFRESH_SECS;
+}, 5 * 60 * 1000);
 </script>
 </body>
 </html>
