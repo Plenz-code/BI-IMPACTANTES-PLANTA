@@ -2685,12 +2685,13 @@ function fmtG(g) {
   return g.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' g';
 }
 
-// Aderência = 1 − |Realizado − Previsto| / Previsto
-// Estourar acima do previsto pesa igual a ficar abaixo — nunca passa de 100%.
+// Aderência — mesma fórmula da planilha (aba Resumo, coluna Aderência %):
+//   MÍNIMO(previsto, realizado) / MÁXIMO(previsto, realizado)
+// Simétrica: estourar a previsão pesa igual a ficar abaixo dela.
 function aderencia(previsto, realizado) {
   if (!previsto || previsto <= 0) return null;
-  const val = 1 - Math.abs(realizado - previsto) / previsto;
-  return Math.max(0, val); // nunca negativo mesmo em desvios extremos
+  if (!realizado || realizado <= 0) return null;
+  return Math.min(previsto, realizado) / Math.max(previsto, realizado);
 }
 
 function resetOuro() {
