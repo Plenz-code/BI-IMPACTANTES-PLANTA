@@ -1100,6 +1100,7 @@ body { -webkit-overflow-scrolling: touch; }
   </div>
 
   <!-- Estoque por pilha (individual + geral) -->
+  <div style="font-size:10px;color:#666;margin-bottom:4px">📦 Estoque físico atual — inclui saldo herdado de Agosto/2026 (mês em que a Movimentação Mina deixou de ser rastreada por completo na planilha da planta)</div>
   <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:10px" class="bm-kpi-grid">
     <div class="kpi-card" style="--cor:#4caf50">
       <div class="kpi-label">Estoque — Pátio Alimentação</div>
@@ -1579,8 +1580,8 @@ function renderDash() {
 /* ══ ABA DIÁRIA ══ */
 function initDiario() {
   const dates = [...new Set([...Object.keys(DADOS.brit_daily),...Object.keys(DADOS.l1_daily),...Object.keys(DADOS.l2_daily),...Object.keys(DADOS.l3_daily)])].sort();
-  document.getElementById('fIni').value = dates[0];
-  document.getElementById('fFim').value = dates[dates.length-1];
+  setDataInputSync(document.getElementById('fIni'), dates[0]);
+  setDataInputSync(document.getElementById('fFim'), dates[dates.length-1]);
   document.getElementById('fSecao').value = 'todas';
   renderDiario();
 }
@@ -2293,7 +2294,10 @@ function handleFile(f, keepView) {
         const outFormig = {}; // data -> {entrada, saida, viagensIn, viagensOut}
         const outC2     = {}; // data -> {entrada, saida, viagensIn, viagensOut}
         const outBrit   = {}; // data -> {entrada, saida, viagensIn, viagensOut}
-        const ws = wb.Sheets['Movimentação Mina'];
+        // A partir de Set/2026, a Movimentação Mina passou a ser separada por mês
+        // (a planta só mantém o mês corrente nessa aba). O histórico de meses
+        // anteriores fica congelado como saldo inicial — ver SALDO_INICIAL_AGOSTO.
+        const ws = wb.Sheets['Movimentação Mina Setembro'] || wb.Sheets['Movimentação Mina'];
         if (!ws) { MINA_ENTRADA = outPatio; MINA_FORMIGUINHA = outFormig; MINA_PATIOC2 = outC2; MINA_BRITADOS = outBrit; return; }
 
         const PATIO_ALIMENTACAO = '04 - ESTOQUE MINERIO - PATIO DE ALIMENTACAO';
@@ -2613,6 +2617,29 @@ let MINA_FORMIGUINHA = {};
 let MINA_PATIOC2 = {};
 let MINA_BRITADOS = {};
 
+// ══════════════════════════════════════════════════════════════
+// SALDO INICIAL — herdado de Agosto/2026
+// A partir de Set/2026 a planilha da planta só mantém o mês corrente
+// (Movimentação Mina, Britador, Linha 1/2/3, Britador Móvel). O estoque físico
+// que já existia fisicamente nas pilhas ao virar o mês não desaparece — por
+// isso fica congelado aqui como ponto de partida do Balanço de Massa,
+// calculado uma única vez a partir do histórico de Agosto:
+//   Pátio Alimentação: 110.110 t entraram da mina − 100.000 t consumidas
+//                       pelo Britador FIXO em agosto = 10.110 t de saldo
+//   Pilha Formiguinha:  14.240 t (só entrada, sem consumo rastreado)
+//   Pátio C2:            6.360 t (só entrada, sem consumo rastreado)
+//   Pátio Britados:      10.405 t entraram − 700 t saíram de caminhão
+//                       − 6.000 t consumidas pelo Britador MÓVEL em agosto
+//                       = 3.705 t de saldo
+// Se um dia precisar ajustar (ex: nova apuração de agosto), é só mudar os
+// números abaixo — não precisa mexer no resto da lógica do Balanço de Massa.
+const SALDO_INICIAL_AGOSTO = {
+  patio:       10110,
+  formiguinha: 14240,
+  patioC2:     6360,
+  britados:    3705,
+};
+
 /* ══════════════════════════════════════════════════════════════
    DASHBOARD PRODUÇÃO — Diário + Mensal + Impactantes
    ══════════════════════════════════════════════════════════════ */
@@ -2726,7 +2753,7 @@ function resetOuro() {
   ])].sort();
   const el = document.getElementById('ouData');
   const ultimo = datas.length ? datas[datas.length-1] : '';
-  if (el) el.value = ultimo;
+  setDataInputSync(el, ultimo);
   // Início/Fim padrão: primeiro ao último dia com dado no mês do último dia disponível
   const iniEl = document.getElementById('ouIni');
   const fimEl = document.getElementById('ouFim');
@@ -2734,10 +2761,10 @@ function resetOuro() {
     if (ultimo) {
       const mesUltimo = ultimo.slice(0,7);
       const datasDoMes = datas.filter(d => d.startsWith(mesUltimo));
-      iniEl.value = datasDoMes.length ? datasDoMes[0] : ultimo;
+      setDataInputSync(iniEl, datasDoMes.length ? datasDoMes[0] : ultimo);
     }
   }
-  if (fimEl && !fimEl.value) fimEl.value = ultimo;
+  if (fimEl && !fimEl.value) setDataInputSync(fimEl, ultimo);
   renderOuro();
 }
 
@@ -2963,8 +2990,8 @@ function resetBalanco() {
   const iniEl = document.getElementById('bmIni');
   const fimEl = document.getElementById('bmFim');
   if (datas.length) {
-    if (iniEl) iniEl.value = datas[0];
-    if (fimEl) fimEl.value = datas[datas.length-1];
+    setDataInputSync(iniEl, datas[0]);
+    setDataInputSync(fimEl, datas[datas.length-1]);
   }
   renderBalanco();
 }
@@ -2986,7 +3013,9 @@ function renderBalanco() {
     .sort();
 
   // ── Série diária: entrada (t), consumo britador (t), saldo, estoque acumulado ──
-  let estoqueAcumulado = 0;
+  // Começa do saldo herdado de agosto (ver SALDO_INICIAL_AGOSTO), não de zero —
+  // o pátio não estava fisicamente vazio na virada do mês.
+  let estoqueAcumulado = SALDO_INICIAL_AGOSTO.patio;
   const serieEntrada = [], serieConsumo = [], serieEstoque = [];
   let totalEntrada = 0, totalConsumo = 0, totalViagens = 0;
   const matComb = {};
@@ -3067,21 +3096,32 @@ function renderBalanco() {
   const saldoC2     = saldoPilha(MINA_PATIOC2);
   // Pátio Britados também é consumido pelo Britador Móvel (Lokotrack), que processa esse estoque
   const saldoBrit   = saldoPilha(MINA_BRITADOS, d => BRIT_MOVEL[d] ? (BRIT_MOVEL[d].prod||0) : 0);
-  const saldoGeral  = saldoPeriodo + saldoFormig + saldoC2 + saldoBrit;
 
-  function setEstoqueKPI(elId, subId, valor, corPositiva) {
+  // "Estoque — X" mostra o estoque FÍSICO ATUAL (herda o saldo de agosto).
+  // "Saldo do Período" (acima) é só o que MUDOU dentro do período escolhido —
+  // por isso os dois usam bases diferentes, mesmo vindo dos mesmos cálculos.
+  const estoqueAtualPatio  = SALDO_INICIAL_AGOSTO.patio       + saldoPeriodo;
+  const estoqueAtualFormig = SALDO_INICIAL_AGOSTO.formiguinha + saldoFormig;
+  const estoqueAtualC2     = SALDO_INICIAL_AGOSTO.patioC2     + saldoC2;
+  const estoqueAtualBrit   = SALDO_INICIAL_AGOSTO.britados    + saldoBrit;
+  const saldoGeral  = estoqueAtualPatio + estoqueAtualFormig + estoqueAtualC2 + estoqueAtualBrit;
+
+  function setEstoqueKPI(elId, subId, valorAbsoluto, delta, corPositiva) {
     const el = document.getElementById(elId);
     const sub = document.getElementById(subId);
     if (el) {
-      el.textContent = fmtT(Math.abs(valor)*1000);
-      el.style.color = valor >= 0 ? corPositiva : '#f44336';
+      el.textContent = fmtT(Math.abs(valorAbsoluto)*1000);
+      el.style.color = valorAbsoluto >= 0 ? corPositiva : '#f44336';
     }
-    if (sub) sub.textContent = valor >= 0 ? 'aumentando' : 'diminuindo';
+    // "aumentando/diminuindo" reflete se o estoque SUBIU ou DESCEU no período
+    // selecionado (delta), não se o nível final é positivo ou negativo —
+    // um estoque de 1,19kt que caiu de 10,11kt continua "diminuindo".
+    if (sub) sub.textContent = delta >= 0 ? 'aumentando' : 'diminuindo';
   }
-  setEstoqueKPI('bmKpiEstPatio',  'bmKpiEstPatioSub',  saldoPeriodo, '#4caf50');
-  setEstoqueKPI('bmKpiEstFormig', 'bmKpiEstFormigSub', saldoFormig,  '#00bcd4');
-  setEstoqueKPI('bmKpiEstC2',     'bmKpiEstC2Sub',     saldoC2,      '#9b59b6');
-  setEstoqueKPI('bmKpiEstBrit',   'bmKpiEstBritSub',   saldoBrit,    '#ff7043');
+  setEstoqueKPI('bmKpiEstPatio',  'bmKpiEstPatioSub',  estoqueAtualPatio,  saldoPeriodo, '#4caf50');
+  setEstoqueKPI('bmKpiEstFormig', 'bmKpiEstFormigSub', estoqueAtualFormig, saldoFormig,  '#00bcd4');
+  setEstoqueKPI('bmKpiEstC2',     'bmKpiEstC2Sub',     estoqueAtualC2,     saldoC2,      '#9b59b6');
+  setEstoqueKPI('bmKpiEstBrit',   'bmKpiEstBritSub',   estoqueAtualBrit,   saldoBrit,    '#ff7043');
   const elGeral = document.getElementById('bmKpiEstGeral');
   if (elGeral) {
     elGeral.textContent = fmtT(Math.abs(saldoGeral)*1000);
@@ -3185,6 +3225,20 @@ function renderBalanco() {
   pizzaMaterial('bmPieMaterial', 'bmPieMaterialLegend', matComb);
 }
 
+// Alguns navegadores não sincronizam a exibição visual de um <input type="date">
+// quando o valor é setado no mesmo instante em que a aba/seção fica visível
+// (comum logo após goTab() trocar a classe .active). Reatribuir o mesmo valor
+// não força o navegador a re-renderizar — por isso passa por vazio primeiro,
+// num frame futuro, garantindo que o calendário mostre o valor certo na tela.
+function setDataInputSync(el, valor) {
+  if (!el) return;
+  el.value = valor;
+  requestAnimationFrame(() => {
+    el.value = '';
+    el.value = valor;
+  });
+}
+
 function resetDashProd() {
   // Vai para o último dia com QUALQUER dado (balança OU conchadas OU impactantes)
   const datasBalanca = PROD_PLANTA.resumo.filter(r=>r.total>0||r.brit>0).map(r=>r.data);
@@ -3200,7 +3254,8 @@ function resetDashProd() {
   ])];
   const datas = [...new Set([...datasBalanca, ...datasConch, ...datasImp])].sort();
   const el = document.getElementById('dpData');
-  if (el) el.value = datas.length ? datas[datas.length-1] : '';
+  const ultimaData = datas.length ? datas[datas.length-1] : '';
+  setDataInputSync(el, ultimaData);
   renderDashProd();
 }
 
@@ -3272,7 +3327,23 @@ function teorRecupDia(key, d) {
 function renderDashProd() {
   const el = document.getElementById('dpData');
   const data = el ? el.value : '';
-  if (!data) { resetDashProd(); return; }
+  if (!data) {
+    // Sem data válida no campo. Tenta resetar (auto-seleciona o último dia
+    // com dado) UMA vez só — se mesmo assim continuar vazio, é porque não
+    // há dado nenhum carregado ainda (ex: mês novo, planilha sem produção
+    // lançada). Para aqui em vez de repetir: evita loop infinito entre
+    // resetDashProd() <-> renderDashProd() que travava a página inteira.
+    if (window._dashProdTentouReset) {
+      window._dashProdTentouReset = false;
+      const info = document.getElementById('dpInfo');
+      if (info) info.textContent = 'Sem dados de produção ainda';
+      return;
+    }
+    window._dashProdTentouReset = true;
+    resetDashProd();
+    return;
+  }
+  window._dashProdTentouReset = false;
 
   const dd = data.slice(8)+'/'+data.slice(5,7)+'/'+data.slice(0,4);
   document.getElementById('dpInfo').textContent = dd;
@@ -4043,7 +4114,7 @@ function initRelatorio() {
   if (rDataEl) {
     rDataEl.min = dates[0];
     rDataEl.max = dates[dates.length-1];
-    rDataEl.value = dates[dates.length-1];
+    setDataInputSync(rDataEl, dates[dates.length-1]);
   }
   const rLinhaEl = document.getElementById('rLinha');
   if (rLinhaEl) rLinhaEl.value = 'l1';
