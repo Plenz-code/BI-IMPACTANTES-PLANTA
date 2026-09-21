@@ -986,7 +986,7 @@ body { -webkit-overflow-scrolling: touch; }
       <div class="kpi-sub" id="ouKpiDiaSub"></div>
     </div>
     <div class="kpi-card" style="--cor:#e8b923">
-      <div class="kpi-label">Ouro Acumulado — Período</div>
+      <div class="kpi-label">Ouro Realizado — Período</div>
       <div class="kpi-value" id="ouKpiMes" style="color:#e8b923">—</div>
       <div class="kpi-sub" id="ouKpiMesSub"></div>
     </div>
@@ -2812,7 +2812,7 @@ function renderOuro() {
   if (kpiDiaEl) kpiDiaEl.textContent = fmtG(ouroDia);
   if (kpiDiaSubEl) kpiDiaSubEl.textContent = ouroDia>0 ? (estimandoDia ? '⚠ inclui estimativa (turno aberto)' : 'totalizador da balança') : '';
 
-  // ── KPI Período (Data Início → Data Fim) ──
+  // ── KPI Período (Data Início → Data Fim) — Ouro REALIZADO total (Mina) ──
   const datasMes = [...new Set([
     ...Object.keys((PROD_PLANTA.ouro_hora||{}).l1||{}),
     ...Object.keys((PROD_PLANTA.ouro_hora||{}).l2||{}),
@@ -2821,12 +2821,15 @@ function renderOuro() {
     ...Object.keys((PROD_PLANTA.ouro||{}).l2||{}),
     ...Object.keys((PROD_PLANTA.ouro||{}).l3||{}),
   ])].filter(d => (!periodoIni || d>=periodoIni) && (!periodoFim || d<=periodoFim)).sort();
+
+  const diasComRealizadoMes = Object.keys(PROD_PLANTA.ouro_resumo||{})
+    .filter(d => (!periodoIni || d>=periodoIni) && (!periodoFim || d<=periodoFim) && (PROD_PLANTA.ouro_resumo[d].realizado||0) > 0);
   let ouroMes = 0;
-  datasMes.forEach(d => { LINHAS.forEach(k => { ouroMes += ouroEfetivo(k,d).total; }); });
+  diasComRealizadoMes.forEach(d => { ouroMes += (PROD_PLANTA.ouro_resumo[d].realizado || 0); });
   const kpiMesEl = document.getElementById('ouKpiMes');
   const kpiMesSubEl = document.getElementById('ouKpiMesSub');
   if (kpiMesEl) kpiMesEl.textContent = fmtG(ouroMes);
-  if (kpiMesSubEl) kpiMesSubEl.textContent = datasMes.length + ' dia(s) no período';
+  if (kpiMesSubEl) kpiMesSubEl.textContent = diasComRealizadoMes.length + ' dia(s) no período';
 
   // ── Teor / Recuperação médios do dia (soma das 3 linhas, ponderado por conchada) ──
   let teorSoma=0, teorPeso=0, recupSoma=0, recupPeso=0;
