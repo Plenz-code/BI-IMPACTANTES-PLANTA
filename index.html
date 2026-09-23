@@ -373,6 +373,7 @@ body { -webkit-overflow-scrolling: touch; }
     <button class="tab-btn" id="btnProducao" onclick="goTab('producao',this)">📊 Dashboard Produção</button>
     <button class="tab-btn" id="btnOuro" onclick="goTab('ouro',this)">🥇 Ouro Previsto</button>
     <button class="tab-btn" id="btnBalanco" onclick="goTab('balanco',this)">⚖️ Balanço de Massa</button>
+    <button class="tab-btn" id="btnMovMina" onclick="goTab('movmina',this)">🚚 Movimentação Mina</button>
     <button class="tab-btn" id="btnDash" onclick="goTab('dashboard',this)">📊 Overview DF</button>
     <button class="tab-btn" id="btnDiario" onclick="goTab('diario',this)">📅 Visualização Diária</button>
     <button class="tab-btn" id="btnRelat" onclick="goTab('relatorio',this)">📈 Relatório do Dia</button>
@@ -1075,59 +1076,51 @@ body { -webkit-overflow-scrolling: touch; }
     <button class="filtro-reset" onclick="resetBalanco()">↺ Mês inteiro</button>
   </div>
 
-  <!-- KPIs -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px" class="bm-kpi-grid">
-    <div class="kpi-card" style="--cor:#4caf50">
-      <div class="kpi-label">Entrada — Mina → Pátio de Alimentação do Britador</div>
-      <div class="kpi-value" id="bmKpiEntrada" style="color:#4caf50">—</div>
-      <div class="kpi-sub" id="bmKpiEntradaSub"></div>
-    </div>
-    <div class="kpi-card" style="--cor:#e8a020">
-      <div class="kpi-label">Consumo — Britador</div>
-      <div class="kpi-value" id="bmKpiConsumo" style="color:#e8a020">—</div>
-      <div class="kpi-sub">total do período</div>
-    </div>
-    <div class="kpi-card" style="--cor:#4a90d9">
-      <div class="kpi-label">Saldo do Período</div>
-      <div class="kpi-value" id="bmKpiSaldo" style="color:#4a90d9">—</div>
-      <div class="kpi-sub" id="bmKpiSaldoSub">entrada − consumo</div>
-    </div>
-    <div class="kpi-card" style="--cor:#9b59b6">
-      <div class="kpi-label">Viagens — Pátio de Alimentação do Britador</div>
-      <div class="kpi-value" id="bmKpiViagens" style="color:#9b59b6">—</div>
-      <div class="kpi-sub">caminhões mina → pátio de alimentação</div>
-    </div>
-  </div>
-
-  <!-- Estoque por pilha (individual + geral) -->
-  <div style="font-size:10px;color:#666;margin-bottom:4px">📦 Estoque físico atual — inclui saldo herdado de Agosto/2026 (mês em que a Movimentação Mina deixou de ser rastreada por completo na planilha da planta)</div>
+  <!-- Estoque por pilha (individual + geral), cada um com composição de material -->
+  <div style="font-size:10px;color:#666;margin-bottom:4px">📦 Estoque físico atual — inclui saldo herdado de Agosto/2026 (mês em que a Movimentação Mina deixou de ser rastreada por completo na planilha da planta). Composição de material reflete só a entrada de Setembro (o saldo herdado não tem detalhamento por material).</div>
   <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:10px" class="bm-kpi-grid">
     <div class="kpi-card" style="--cor:#4caf50">
       <div class="kpi-label">Estoque — Pátio Alimentação</div>
       <div class="kpi-value" id="bmKpiEstPatio" style="color:#4caf50;font-size:20px">—</div>
       <div class="kpi-sub" id="bmKpiEstPatioSub"></div>
+      <div class="kpi-sub" id="bmKpiEstPatioAgoSet" style="font-size:12px;font-weight:700;color:#e8e8e8"></div>
+      <div style="margin-top:6px" id="bmMatEstPatio"></div>
     </div>
     <div class="kpi-card" style="--cor:#00bcd4">
       <div class="kpi-label">Estoque — Pilha Formiguinha</div>
       <div class="kpi-value" id="bmKpiEstFormig" style="color:#00bcd4;font-size:20px">—</div>
       <div class="kpi-sub" id="bmKpiEstFormigSub"></div>
+      <div class="kpi-sub" id="bmKpiEstFormigAgoSet" style="font-size:12px;font-weight:700;color:#e8e8e8"></div>
+      <div style="margin-top:6px" id="bmMatEstFormig"></div>
     </div>
     <div class="kpi-card" style="--cor:#9b59b6">
       <div class="kpi-label">Estoque — Pátio C2</div>
       <div class="kpi-value" id="bmKpiEstC2" style="color:#9b59b6;font-size:20px">—</div>
       <div class="kpi-sub" id="bmKpiEstC2Sub"></div>
+      <div class="kpi-sub" id="bmKpiEstC2AgoSet" style="font-size:12px;font-weight:700;color:#e8e8e8"></div>
+      <div style="margin-top:6px" id="bmMatEstC2"></div>
     </div>
     <div class="kpi-card" style="--cor:#ff7043">
       <div class="kpi-label">Estoque — Pátio Britados</div>
       <div class="kpi-value" id="bmKpiEstBrit" style="color:#ff7043;font-size:20px">—</div>
       <div class="kpi-sub" id="bmKpiEstBritSub"></div>
+      <div class="kpi-sub" id="bmKpiEstBritAgoSet" style="font-size:12px;font-weight:700;color:#e8e8e8"></div>
       <div class="kpi-sub" style="font-size:9px;color:#666">consumo: Britador Móvel</div>
+      <div style="margin-top:6px" id="bmMatEstBrit"></div>
     </div>
     <div class="kpi-card" style="--cor:#e8b923">
       <div class="kpi-label">🌐 Estoque Geral — Total</div>
       <div class="kpi-value" id="bmKpiEstGeral" style="color:#e8b923;font-size:20px">—</div>
       <div class="kpi-sub" id="bmKpiEstGeralSub">4 pilhas somadas</div>
+      <div class="kpi-sub" id="bmKpiEstGeralAgoSet" style="font-size:12px;font-weight:700;color:#e8e8e8"></div>
+      <div style="margin-top:6px" id="bmMatEstGeral"></div>
     </div>
+  </div>
+
+  <!-- Estoque acumulado -->
+  <div class="chart-card" style="margin-bottom:10px">
+    <div class="chart-title">📦 Estoque no Pátio de Alimentação do Britador</div>
+    <div style="height:260px"><canvas id="bmEstoqueChart"></canvas></div>
   </div>
 
   <!-- Estoque Britado — calculado via produção (Britagem Fixa+Móvel x Moagem), não via caminhão -->
@@ -1153,26 +1146,65 @@ body { -webkit-overflow-scrolling: touch; }
     <div style="height:220px;margin-top:10px"><canvas id="bmEstoqueBritChart"></canvas></div>
   </div>
 
-  <!-- Estoque acumulado -->
-  <div class="chart-card" style="margin-bottom:10px">
-    <div class="chart-title">📦 Estoque no Pátio de Alimentação do Britador</div>
-    <div style="height:260px"><canvas id="bmEstoqueChart"></canvas></div>
+  <div class="footer">🏭 Planta de Beneficiamento Santa Felicidade &nbsp;|&nbsp; Balanço de Massa &nbsp;|&nbsp; Set/2026</div>
+</div>
+
+<!-- MOVIMENTAÇÃO MINA — caminhões mina → pátios (entrada total por pilha, material) -->
+<div class="tab-content" id="tab-movmina">
+  <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;background:#131620;border:1px solid #252838;border-radius:6px;padding:10px 16px;margin-bottom:10px">
+    <div class="filtro-group">
+      <label>Data Início</label>
+      <input type="date" id="mmIni" onchange="renderMovMina()">
+    </div>
+    <div class="filtro-group">
+      <label>Data Fim</label>
+      <input type="date" id="mmFim" onchange="renderMovMina()">
+    </div>
+    <button class="filtro-reset" onclick="resetMovMina()">↺ Mês inteiro</button>
+  </div>
+
+  <!-- KPIs — Movimentação TOTAL de entrada em cada pátio, com composição de material -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px" class="bm-kpi-grid">
+    <div class="kpi-card" style="--cor:#4caf50">
+      <div class="kpi-label">Entrada — Pátio de Alimentação</div>
+      <div class="kpi-value" id="mmKpiEntradaPatio" style="color:#4caf50">—</div>
+      <div class="kpi-sub" id="mmKpiEntradaPatioSub"></div>
+      <div style="margin-top:6px" id="mmMatEntradaPatio"></div>
+    </div>
+    <div class="kpi-card" style="--cor:#00bcd4">
+      <div class="kpi-label">Entrada — Pilha Formiguinha</div>
+      <div class="kpi-value" id="mmKpiEntradaFormig" style="color:#00bcd4">—</div>
+      <div class="kpi-sub" id="mmKpiEntradaFormigSub"></div>
+      <div style="margin-top:6px" id="mmMatEntradaFormig"></div>
+    </div>
+    <div class="kpi-card" style="--cor:#9b59b6">
+      <div class="kpi-label">Entrada — Pátio C2</div>
+      <div class="kpi-value" id="mmKpiEntradaC2" style="color:#9b59b6">—</div>
+      <div class="kpi-sub" id="mmKpiEntradaC2Sub"></div>
+      <div style="margin-top:6px" id="mmMatEntradaC2"></div>
+    </div>
+    <div class="kpi-card" style="--cor:#ff7043">
+      <div class="kpi-label">Entrada — Pátio Britados</div>
+      <div class="kpi-value" id="mmKpiEntradaBrit" style="color:#ff7043">—</div>
+      <div class="kpi-sub" id="mmKpiEntradaBritSub"></div>
+      <div style="margin-top:6px" id="mmMatEntradaBrit"></div>
+    </div>
   </div>
 
   <!-- Entrada x Consumo diário + Pizza de material -->
   <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:10px" class="bm-bottom-grid">
     <div class="chart-card">
       <div class="chart-title">📊 Entrada (Mina) x Consumo (Britador) — Diário</div>
-      <div style="height:260px"><canvas id="bmDiarioChart"></canvas></div>
+      <div style="height:260px"><canvas id="mmDiarioChart"></canvas></div>
     </div>
     <div class="chart-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center">
       <div class="chart-title">Material — % da Entrada</div>
-      <div style="height:180px;width:100%"><canvas id="bmPieMaterial"></canvas></div>
-      <div id="bmPieMaterialLegend" style="margin-top:8px;font-size:12px;line-height:1.8;text-align:center"></div>
+      <div style="height:180px;width:100%"><canvas id="mmPieMaterial"></canvas></div>
+      <div id="mmPieMaterialLegend" style="margin-top:8px;font-size:12px;line-height:1.8;text-align:center"></div>
     </div>
   </div>
 
-  <div class="footer">🏭 Planta de Beneficiamento Santa Felicidade &nbsp;|&nbsp; Balanço de Massa &nbsp;|&nbsp; Set/2026</div>
+  <div class="footer">🏭 Planta de Beneficiamento Santa Felicidade &nbsp;|&nbsp; Movimentação Mina &nbsp;|&nbsp; Set/2026</div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -1220,7 +1252,7 @@ function goTab(name, btn) {
     // Garante que o botão certo fica ativo mesmo sem referência direta
     const btnMap = {upload:'btnUpload',producao:'btnProducao',dashboard:'btnDash',
                     diario:'btnDiario',relatorio:'btnRelat',filtro:'btnFiltro',ouro:'btnOuro',
-                    balanco:'btnBalanco'};
+                    balanco:'btnBalanco',movmina:'btnMovMina'};
     const b = document.getElementById(btnMap[name]);
     if(b) b.classList.add('active');
   }
@@ -1231,6 +1263,7 @@ function goTab(name, btn) {
   if(name==='filtro')    initFiltro();
   if(name==='ouro')      resetOuro();
   if(name==='balanco')   resetBalanco();
+  if(name==='movmina')   resetMovMina();
 }
 
 // Re-renderiza a aba atualmente aberta com dados novos, SEM mexer em nenhum
@@ -1248,6 +1281,7 @@ function refreshCurrentTab() {
   else if (name === 'filtro')     renderFiltro();
   else if (name === 'ouro')       renderOuro();
   else if (name === 'balanco')    renderBalanco();
+  else if (name === 'movmina')    renderMovMina();
 }
 
 /* ── Seção ── */
@@ -2303,9 +2337,9 @@ function handleFile(f, keepView) {
       // Pátio Britados (produto britado, entrada e saída mais mistas).
       (function parseMovimentacaoMina() {
         const outPatio  = {}; // data -> {ton, viagens, material:{produto:ton}}  (só entrada, mina->pátio)
-        const outFormig = {}; // data -> {entrada, saida, viagensIn, viagensOut}
-        const outC2     = {}; // data -> {entrada, saida, viagensIn, viagensOut}
-        const outBrit   = {}; // data -> {entrada, saida, viagensIn, viagensOut}
+        const outFormig = {}; // data -> {entrada, saida, viagensIn, viagensOut, material:{produto:ton}}
+        const outC2     = {}; // data -> {entrada, saida, viagensIn, viagensOut, material:{produto:ton}}
+        const outBrit   = {}; // data -> {entrada, saida, viagensIn, viagensOut, material:{produto:ton}}
         // A partir de Set/2026, a Movimentação Mina passou a ser separada por mês
         // (a planta só mantém o mês corrente nessa aba). O histórico de meses
         // anteriores fica congelado como saldo inicial — ver SALDO_INICIAL_AGOSTO.
@@ -2353,36 +2387,39 @@ function handleFile(f, keepView) {
 
           // ── Pilha Formiguinha: entrada (qualquer origem) e saída (caminhão saindo de lá) ──
           if (localDescarga === PILHA_FORMIGUINHA) {
-            if (!outFormig[data]) outFormig[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0 };
+            if (!outFormig[data]) outFormig[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0, material:{} };
             outFormig[data].entrada += ton;
             outFormig[data].viagensIn += 1;
+            outFormig[data].material[produto] = (outFormig[data].material[produto]||0) + ton;
           }
           if (localCarga === PILHA_FORMIGUINHA) {
-            if (!outFormig[data]) outFormig[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0 };
+            if (!outFormig[data]) outFormig[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0, material:{} };
             outFormig[data].saida += ton;
             outFormig[data].viagensOut += 1;
           }
 
           // ── Pátio C2: entrada (qualquer origem) e saída (caminhão saindo de lá) ──
           if (localDescarga === PATIO_C2) {
-            if (!outC2[data]) outC2[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0 };
+            if (!outC2[data]) outC2[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0, material:{} };
             outC2[data].entrada += ton;
             outC2[data].viagensIn += 1;
+            outC2[data].material[produto] = (outC2[data].material[produto]||0) + ton;
           }
           if (localCarga === PATIO_C2) {
-            if (!outC2[data]) outC2[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0 };
+            if (!outC2[data]) outC2[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0, material:{} };
             outC2[data].saida += ton;
             outC2[data].viagensOut += 1;
           }
 
           // ── Pátio Britados: entrada (qualquer origem) e saída (caminhão saindo de lá) ──
           if (localDescarga === PATIO_BRITADOS) {
-            if (!outBrit[data]) outBrit[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0 };
+            if (!outBrit[data]) outBrit[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0, material:{} };
             outBrit[data].entrada += ton;
             outBrit[data].viagensIn += 1;
+            outBrit[data].material[produto] = (outBrit[data].material[produto]||0) + ton;
           }
           if (localCarga === PATIO_BRITADOS) {
-            if (!outBrit[data]) outBrit[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0 };
+            if (!outBrit[data]) outBrit[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0, material:{} };
             outBrit[data].saida += ton;
             outBrit[data].viagensOut += 1;
           }
@@ -2692,6 +2729,23 @@ function matChipsHTML(md) {
     const cor = corMaterial(mat);
     const pct = (v/total*100).toFixed(0);
     return `<span style="display:inline-flex;align-items:center;gap:4px;background:${cor}22;border:1px solid ${cor};color:${cor};font-size:10px;font-weight:700;padding:2px 7px;border-radius:12px;white-space:nowrap">${mat}<span style="color:#f0f0f0;font-weight:600">${pct}%</span></span>`;
+  }).join('');
+}
+
+// Igual ao matChipsHTML, mas mostra quantidade (toneladas) ALÉM da porcentagem —
+// usado nos KPIs da aba Movimentação Mina, onde o pedido é ver os dois juntos.
+function matChipsQtdHTML(md) {
+  const entries = Object.entries(md||{}).sort((a,b)=>b[1]-a[1]);
+  if (!entries.length) return '<span style="color:#555;font-size:10px">sem dado de material</span>';
+  const total = entries.reduce((a,[,v])=>a+v, 0);
+  if (total <= 0) return '<span style="color:#555;font-size:10px">sem dado de material</span>';
+  const visiveis = entries.filter(([,v]) => Math.round(v/total*100) > 0);
+  if (!visiveis.length) return '<span style="color:#555;font-size:10px">sem dado de material</span>';
+  return visiveis.map(([mat,v]) => {
+    const cor = corMaterial(mat);
+    const pct = (v/total*100).toFixed(0);
+    const qtd = v.toLocaleString('pt-BR', {minimumFractionDigits:1, maximumFractionDigits:1});
+    return `<span style="display:inline-flex;align-items:center;gap:4px;background:${cor}22;border:1px solid ${cor};color:${cor};font-size:10px;font-weight:700;padding:2px 7px;border-radius:12px;white-space:nowrap;margin:1px">${mat} <span style="color:#f0f0f0;font-weight:600">${qtd}t (${pct}%)</span></span>`;
   }).join('');
 }
 
@@ -3005,7 +3059,11 @@ function renderOuro() {
 // ABA BALANÇO DE MASSA — Mina → Pátio de Alimentação do Britador
 // ══════════════════════════════════════════════════════════════
 function resetBalanco() {
-  const datas = Object.keys(MINA_ENTRADA).sort();
+  // Usa a união das datas de mina (estoque) e produção (britado via produção)
+  const datas = [...new Set([
+    ...Object.keys(MINA_ENTRADA),
+    ...PROD_PLANTA.resumo.map(r=>r.data),
+  ])].sort();
   const iniEl = document.getElementById('bmIni');
   const fimEl = document.getElementById('bmFim');
   if (datas.length) {
@@ -3022,7 +3080,6 @@ function renderBalanco() {
   const periodoIni = iniEl ? iniEl.value : '';
   const periodoFim = fimEl ? fimEl.value : '';
 
-  // Une todas as datas com entrada de mina OU consumo de britador, dentro do período
   const todasDatas = [...new Set([
     ...Object.keys(MINA_ENTRADA),
     ...PROD_PLANTA.resumo.map(r=>r.data),
@@ -3031,13 +3088,11 @@ function renderBalanco() {
     .filter(d => (!periodoIni || d>=periodoIni) && (!periodoFim || d<=periodoFim))
     .sort();
 
-  // ── Série diária: entrada (t), consumo britador (t), saldo, estoque acumulado ──
-  // Começa do saldo herdado de agosto (ver SALDO_INICIAL_AGOSTO), não de zero —
-  // o pátio não estava fisicamente vazio na virada do mês.
+  // ── Estoque por pilha (Pátio Alimentação, Formiguinha, C2, Britados) ──
   let estoqueAcumulado = SALDO_INICIAL_AGOSTO.patio;
-  const serieEntrada = [], serieConsumo = [], serieEstoque = [];
-  let totalEntrada = 0, totalConsumo = 0, totalViagens = 0;
-  const matComb = {};
+  const serieEstoque = [];
+  let totalEntrada = 0, totalConsumo = 0;
+  const matEntrada = {}, matFormig = {}, matC2 = {}, matBrit = {};
 
   // Estoque Britado via produção: Britagem (Fixa+Móvel) x Moagem (L1+L2+L3)
   let estoqueBritAcum = 0;
@@ -3048,26 +3103,21 @@ function renderBalanco() {
     const mina = MINA_ENTRADA[d] || null;
     const entradaDia = mina ? mina.ton : 0;
     const consumoDiaKg = (typeof prodEfetiva === 'function') ? prodEfetiva('brit', d).total : 0;
-    const consumoDia = consumoDiaKg / 1000; // kg -> t
+    const consumoDia = consumoDiaKg / 1000;
 
     estoqueAcumulado += entradaDia - consumoDia;
-
-    serieEntrada.push(+entradaDia.toFixed(1));
-    serieConsumo.push(+consumoDia.toFixed(1));
     serieEstoque.push(+estoqueAcumulado.toFixed(1));
-
     totalEntrada += entradaDia;
     totalConsumo += consumoDia;
-    if (mina) {
-      totalViagens += mina.viagens;
-      Object.entries(mina.material).forEach(([mat,v]) => { matComb[mat] = (matComb[mat]||0) + v; });
-    }
+    if (mina) Object.entries(mina.material).forEach(([mat,v]) => { matEntrada[mat] = (matEntrada[mat]||0) + v; });
 
-    // Britado (Fixa + Móvel) produzido no dia
-    let britadoDia = consumoDia; // já calculado acima (Britagem fixa, kg->t)
+    const vf = MINA_FORMIGUINHA[d]; if (vf && vf.material) Object.entries(vf.material).forEach(([mat,v]) => { matFormig[mat] = (matFormig[mat]||0) + v; });
+    const vc = MINA_PATIOC2[d];     if (vc && vc.material) Object.entries(vc.material).forEach(([mat,v]) => { matC2[mat] = (matC2[mat]||0) + v; });
+    const vb = MINA_BRITADOS[d];    if (vb && vb.material) Object.entries(vb.material).forEach(([mat,v]) => { matBrit[mat] = (matBrit[mat]||0) + v; });
+
+    let britadoDia = consumoDia;
     const bm = BRIT_MOVEL[d];
     if (bm) britadoDia += (bm.prod || 0);
-    // Moagem (L1+L2+L3) consumida no dia
     let moagemDia = 0;
     ['l1','l2','l3'].forEach(k => {
       const ef = (typeof prodEfetiva === 'function') ? prodEfetiva(k, d) : {total:0};
@@ -3082,26 +3132,6 @@ function renderBalanco() {
   const saldoPeriodo = totalEntrada - totalConsumo;
   const saldoBritProd = totalBritadoProd - totalMoagemCons;
 
-  // ── KPIs ──
-  const elEntrada    = document.getElementById('bmKpiEntrada');
-  const elEntradaSub = document.getElementById('bmKpiEntradaSub');
-  const elConsumo    = document.getElementById('bmKpiConsumo');
-  const elSaldo      = document.getElementById('bmKpiSaldo');
-  const elSaldoSub   = document.getElementById('bmKpiSaldoSub');
-  const elViagens    = document.getElementById('bmKpiViagens');
-
-  if (elEntrada)    elEntrada.textContent    = totalEntrada>0 ? fmtT(totalEntrada*1000) : '—';
-  if (elEntradaSub) elEntradaSub.textContent = todasDatas.length + ' dia(s) no período';
-  if (elConsumo)    elConsumo.textContent    = totalConsumo>0 ? fmtT(totalConsumo*1000) : '—';
-  if (elViagens)    elViagens.textContent    = totalViagens>0 ? totalViagens.toLocaleString('pt-BR') : '—';
-  if (elSaldo) {
-    elSaldo.textContent = fmtT(Math.abs(saldoPeriodo)*1000);
-    elSaldo.style.color = saldoPeriodo >= 0 ? '#4caf50' : '#f44336';
-  }
-  if (elSaldoSub) elSaldoSub.textContent = saldoPeriodo >= 0 ? 'estoque aumentando' : 'estoque diminuindo';
-
-  // ── Estoque por pilha (Pátio Alimentação, Formiguinha, Britados) + Geral ──
-  // consumoExtra: função opcional que retorna consumo adicional por dia (ex: Britador Móvel/Lokotrack)
   function saldoPilha(fonte, consumoExtra) {
     let saldo = 0;
     todasDatas.forEach(d => {
@@ -3113,12 +3143,8 @@ function renderBalanco() {
   }
   const saldoFormig = saldoPilha(MINA_FORMIGUINHA);
   const saldoC2     = saldoPilha(MINA_PATIOC2);
-  // Pátio Britados também é consumido pelo Britador Móvel (Lokotrack), que processa esse estoque
   const saldoBrit   = saldoPilha(MINA_BRITADOS, d => BRIT_MOVEL[d] ? (BRIT_MOVEL[d].prod||0) : 0);
 
-  // "Estoque — X" mostra o estoque FÍSICO ATUAL (herda o saldo de agosto).
-  // "Saldo do Período" (acima) é só o que MUDOU dentro do período escolhido —
-  // por isso os dois usam bases diferentes, mesmo vindo dos mesmos cálculos.
   const estoqueAtualPatio  = SALDO_INICIAL_AGOSTO.patio       + saldoPeriodo;
   const estoqueAtualFormig = SALDO_INICIAL_AGOSTO.formiguinha + saldoFormig;
   const estoqueAtualC2     = SALDO_INICIAL_AGOSTO.patioC2     + saldoC2;
@@ -3132,62 +3158,44 @@ function renderBalanco() {
       el.textContent = fmtT(Math.abs(valorAbsoluto)*1000);
       el.style.color = valorAbsoluto >= 0 ? corPositiva : '#f44336';
     }
-    // "aumentando/diminuindo" reflete se o estoque SUBIU ou DESCEU no período
-    // selecionado (delta), não se o nível final é positivo ou negativo —
-    // um estoque de 1,19kt que caiu de 10,11kt continua "diminuindo".
     if (sub) sub.textContent = delta >= 0 ? 'aumentando' : 'diminuindo';
+  }
+  function setAgoSet(elId, agostoT, setembroT) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    const sinalSet = setembroT < 0 ? '-' : '';
+    el.textContent = `Ago: ${fmtT(agostoT*1000)}  |  Set: ${sinalSet}${fmtT(Math.abs(setembroT)*1000)}`;
   }
   setEstoqueKPI('bmKpiEstPatio',  'bmKpiEstPatioSub',  estoqueAtualPatio,  saldoPeriodo, '#4caf50');
   setEstoqueKPI('bmKpiEstFormig', 'bmKpiEstFormigSub', estoqueAtualFormig, saldoFormig,  '#00bcd4');
   setEstoqueKPI('bmKpiEstC2',     'bmKpiEstC2Sub',     estoqueAtualC2,     saldoC2,      '#9b59b6');
   setEstoqueKPI('bmKpiEstBrit',   'bmKpiEstBritSub',   estoqueAtualBrit,   saldoBrit,    '#ff7043');
+  setAgoSet('bmKpiEstPatioAgoSet',  SALDO_INICIAL_AGOSTO.patio,       saldoPeriodo);
+  setAgoSet('bmKpiEstFormigAgoSet', SALDO_INICIAL_AGOSTO.formiguinha, saldoFormig);
+  setAgoSet('bmKpiEstC2AgoSet',     SALDO_INICIAL_AGOSTO.patioC2,     saldoC2);
+  setAgoSet('bmKpiEstBritAgoSet',   SALDO_INICIAL_AGOSTO.britados,    saldoBrit);
   const elGeral = document.getElementById('bmKpiEstGeral');
   if (elGeral) {
     elGeral.textContent = fmtT(Math.abs(saldoGeral)*1000);
     elGeral.style.color = saldoGeral >= 0 ? '#e8b923' : '#f44336';
   }
+  const agostoGeral = SALDO_INICIAL_AGOSTO.patio + SALDO_INICIAL_AGOSTO.formiguinha + SALDO_INICIAL_AGOSTO.patioC2 + SALDO_INICIAL_AGOSTO.britados;
+  const setembroGeral = saldoPeriodo + saldoFormig + saldoC2 + saldoBrit;
+  setAgoSet('bmKpiEstGeralAgoSet', agostoGeral, setembroGeral);
 
-  // ── KPIs — Estoque Britado via Produção ──
-  const elBritProd    = document.getElementById('bmKpiBritProd');
-  const elBritCons     = document.getElementById('bmKpiBritCons');
-  const elBritSaldo    = document.getElementById('bmKpiBritSaldo');
-  const elBritSaldoSub = document.getElementById('bmKpiBritSaldoSub');
-  if (elBritProd) elBritProd.textContent = totalBritadoProd>0 ? fmtT(totalBritadoProd*1000) : '—';
-  if (elBritCons) elBritCons.textContent = totalMoagemCons>0  ? fmtT(totalMoagemCons*1000)  : '—';
-  if (elBritSaldo) {
-    elBritSaldo.textContent = fmtT(Math.abs(saldoBritProd)*1000);
-    elBritSaldo.style.color = saldoBritProd >= 0 ? '#26a69a' : '#f44336';
-  }
-  if (elBritSaldoSub) elBritSaldoSub.textContent = saldoBritProd >= 0 ? 'acumulando' : 'consumindo mais do que produz';
+  const elMatPatio  = document.getElementById('bmMatEstPatio');
+  const elMatFormig = document.getElementById('bmMatEstFormig');
+  const elMatC2     = document.getElementById('bmMatEstC2');
+  const elMatBrit   = document.getElementById('bmMatEstBrit');
+  const elMatGeral  = document.getElementById('bmMatEstGeral');
+  if (elMatPatio)  elMatPatio.innerHTML  = matChipsQtdHTML(matEntrada);
+  if (elMatFormig) elMatFormig.innerHTML = matChipsQtdHTML(matFormig);
+  if (elMatC2)     elMatC2.innerHTML     = matChipsQtdHTML(matC2);
+  if (elMatBrit)   elMatBrit.innerHTML   = matChipsQtdHTML(matBrit);
+  const matGeral = {};
+  [matEntrada, matFormig, matC2, matBrit].forEach(m => Object.entries(m).forEach(([mat,v]) => { matGeral[mat] = (matGeral[mat]||0) + v; }));
+  if (elMatGeral)  elMatGeral.innerHTML  = matChipsQtdHTML(matGeral);
 
-  // ── Gráfico de Estoque Britado via Produção (linha) ──
-  dc('bmEstoqueBritChart');
-  if (todasDatas.length) {
-    CI['bmEstoqueBritChart'] = new Chart(document.getElementById('bmEstoqueBritChart'), {
-      type: 'line',
-      data: {
-        labels: todasDatas.map(d=>d.slice(8,10)+'/'+d.slice(5,7)),
-        datasets: [{
-          label: 'Estoque britado (t)', data: serieBritProd,
-          borderColor: '#ff9800', backgroundColor: 'rgba(255,152,0,0.12)', fill: true,
-          tension: 0.25, pointRadius: 2, borderWidth: 2
-        }]
-      },
-      options: {
-        responsive:true, maintainAspectRatio:false,
-        plugins: {
-          legend: { display:false },
-          tooltip: { backgroundColor:'#131620', callbacks:{ label:c=>`Estoque britado: ${c.parsed.y.toLocaleString('pt-BR')} t` } }
-        },
-        scales: {
-          x: { ticks:{color:'#ccc',font:{size:10}}, grid:{display:false} },
-          y: { ticks:{color:'#ddd',font:{size:10}}, grid:{color:'rgba(255,255,255,0.06)'}, title:{display:true,text:'toneladas',color:'#888',font:{size:10}} }
-        }
-      }
-    });
-  }
-
-  // ── Gráfico de Estoque Acumulado (linha) ──
   dc('bmEstoqueChart');
   if (todasDatas.length) {
     CI['bmEstoqueChart'] = new Chart(document.getElementById('bmEstoqueChart'), {
@@ -3214,10 +3222,117 @@ function renderBalanco() {
     });
   }
 
-  // ── Gráfico Entrada x Consumo diário (barras agrupadas) ──
-  dc('bmDiarioChart');
+  // ── Estoque Britado via Produção ──
+  const elBritProd     = document.getElementById('bmKpiBritProd');
+  const elBritCons     = document.getElementById('bmKpiBritCons');
+  const elBritSaldo    = document.getElementById('bmKpiBritSaldo');
+  const elBritSaldoSub = document.getElementById('bmKpiBritSaldoSub');
+  if (elBritProd) elBritProd.textContent = totalBritadoProd>0 ? fmtT(totalBritadoProd*1000) : '—';
+  if (elBritCons) elBritCons.textContent = totalMoagemCons>0  ? fmtT(totalMoagemCons*1000)  : '—';
+  if (elBritSaldo) {
+    elBritSaldo.textContent = fmtT(Math.abs(saldoBritProd)*1000);
+    elBritSaldo.style.color = saldoBritProd >= 0 ? '#26a69a' : '#f44336';
+  }
+  if (elBritSaldoSub) elBritSaldoSub.textContent = saldoBritProd >= 0 ? 'acumulando' : 'consumindo mais do que produz';
+
+  dc('bmEstoqueBritChart');
   if (todasDatas.length) {
-    CI['bmDiarioChart'] = new Chart(document.getElementById('bmDiarioChart'), {
+    CI['bmEstoqueBritChart'] = new Chart(document.getElementById('bmEstoqueBritChart'), {
+      type: 'line',
+      data: {
+        labels: todasDatas.map(d=>d.slice(8,10)+'/'+d.slice(5,7)),
+        datasets: [{
+          label: 'Estoque britado (t)', data: serieBritProd,
+          borderColor: '#ff9800', backgroundColor: 'rgba(255,152,0,0.12)', fill: true,
+          tension: 0.25, pointRadius: 2, borderWidth: 2
+        }]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins: {
+          legend: { display:false },
+          tooltip: { backgroundColor:'#131620', callbacks:{ label:c=>`Estoque britado: ${c.parsed.y.toLocaleString('pt-BR')} t` } }
+        },
+        scales: {
+          x: { ticks:{color:'#ccc',font:{size:10}}, grid:{display:false} },
+          y: { ticks:{color:'#ddd',font:{size:10}}, grid:{color:'rgba(255,255,255,0.06)'}, title:{display:true,text:'toneladas',color:'#888',font:{size:10}} }
+        }
+      }
+    });
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// MOVIMENTAÇÃO MINA — Entrada TOTAL (caminhões mina → pátios) por pilha,
+// com composição de material. Fonte: aba "Movimentação Mina Setembro".
+// ══════════════════════════════════════════════════════════════
+function resetMovMina() {
+  const datas = Object.keys(MINA_ENTRADA).sort();
+  const iniEl = document.getElementById('mmIni');
+  const fimEl = document.getElementById('mmFim');
+  if (datas.length) {
+    setDataInputSync(iniEl, datas[0]);
+    setDataInputSync(fimEl, datas[datas.length-1]);
+  }
+  renderMovMina();
+}
+
+function renderMovMina() {
+  if (!dadosCarregados()) return;
+  const iniEl = document.getElementById('mmIni');
+  const fimEl = document.getElementById('mmFim');
+  const periodoIni = iniEl ? iniEl.value : '';
+  const periodoFim = fimEl ? fimEl.value : '';
+
+  const todasDatas = [...new Set([
+    ...Object.keys(MINA_ENTRADA),
+    ...PROD_PLANTA.resumo.map(r=>r.data),
+    ...Object.keys(PROD_PLANTA.prod_linha.brit||{}),
+  ])]
+    .filter(d => (!periodoIni || d>=periodoIni) && (!periodoFim || d<=periodoFim))
+    .sort();
+
+  const serieEntrada = [], serieConsumo = [];
+  let totalEntradaPatio = 0, totalConsumo = 0;
+  let totalEntradaFormig = 0, totalEntradaC2 = 0, totalEntradaBrit = 0;
+  const matEntrada = {}, matFormig = {}, matC2 = {}, matBrit = {};
+
+  todasDatas.forEach(d => {
+    const mina = MINA_ENTRADA[d] || null;
+    const entradaDia = mina ? mina.ton : 0;
+    const consumoDiaKg = (typeof prodEfetiva === 'function') ? prodEfetiva('brit', d).total : 0;
+    const consumoDia = consumoDiaKg / 1000;
+
+    serieEntrada.push(+entradaDia.toFixed(1));
+    serieConsumo.push(+consumoDia.toFixed(1));
+    totalEntradaPatio += entradaDia;
+    totalConsumo += consumoDia;
+    if (mina) Object.entries(mina.material).forEach(([mat,v]) => { matEntrada[mat] = (matEntrada[mat]||0) + v; });
+
+    const vf = MINA_FORMIGUINHA[d];
+    if (vf) { totalEntradaFormig += (vf.entrada||0); if (vf.material) Object.entries(vf.material).forEach(([mat,v]) => { matFormig[mat] = (matFormig[mat]||0) + v; }); }
+    const vc = MINA_PATIOC2[d];
+    if (vc) { totalEntradaC2 += (vc.entrada||0); if (vc.material) Object.entries(vc.material).forEach(([mat,v]) => { matC2[mat] = (matC2[mat]||0) + v; }); }
+    const vb = MINA_BRITADOS[d];
+    if (vb) { totalEntradaBrit += (vb.entrada||0); if (vb.material) Object.entries(vb.material).forEach(([mat,v]) => { matBrit[mat] = (matBrit[mat]||0) + v; }); }
+  });
+
+  function setEntradaKPI(elId, subId, matElId, totalT, matMap) {
+    const el = document.getElementById(elId);
+    const sub = document.getElementById(subId);
+    const matEl = document.getElementById(matElId);
+    if (el) el.textContent = totalT>0 ? fmtT(totalT*1000) : '—';
+    if (sub) sub.textContent = todasDatas.length + ' dia(s) no período';
+    if (matEl) matEl.innerHTML = matChipsQtdHTML(matMap);
+  }
+  setEntradaKPI('mmKpiEntradaPatio',  'mmKpiEntradaPatioSub',  'mmMatEntradaPatio',  totalEntradaPatio,  matEntrada);
+  setEntradaKPI('mmKpiEntradaFormig', 'mmKpiEntradaFormigSub', 'mmMatEntradaFormig', totalEntradaFormig, matFormig);
+  setEntradaKPI('mmKpiEntradaC2',     'mmKpiEntradaC2Sub',     'mmMatEntradaC2',     totalEntradaC2,     matC2);
+  setEntradaKPI('mmKpiEntradaBrit',   'mmKpiEntradaBritSub',   'mmMatEntradaBrit',   totalEntradaBrit,   matBrit);
+
+  dc('mmDiarioChart');
+  if (todasDatas.length) {
+    CI['mmDiarioChart'] = new Chart(document.getElementById('mmDiarioChart'), {
       type: 'bar',
       data: {
         labels: todasDatas.map(d=>d.slice(8,10)+'/'+d.slice(5,7)),
@@ -3240,8 +3355,7 @@ function renderBalanco() {
     });
   }
 
-  // ── Pizza de material — composição da entrada no período ──
-  pizzaMaterial('bmPieMaterial', 'bmPieMaterialLegend', matComb);
+  pizzaMaterial('mmPieMaterial', 'mmPieMaterialLegend', matEntrada);
 }
 
 // Alguns navegadores não sincronizam a exibição visual de um <input type="date">
