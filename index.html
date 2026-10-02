@@ -365,7 +365,7 @@ body { -webkit-overflow-scrolling: touch; }
     <span style="font-size:32px">🏆</span>
     <div>
       <div class="dash-title" style="text-align:center;margin-bottom:2px">BI Planta de Beneficiamento — Santa Felicidade</div>
-      <div class="dash-subtitle" style="text-align:center;font-weight:700">Análise de impactantes e produtividade - Setembro 2026</div>
+      <div class="dash-subtitle" style="text-align:center;font-weight:700">Análise de impactantes e produtividade - Outubro 2026</div>
     </div>
   </div>
   <div class="tabs">
@@ -391,6 +391,19 @@ body { -webkit-overflow-scrolling: touch; }
       <p>Carregue a planilha para visualizar os dados.<br>Formatos aceitos: .xlsx / .xls</p>
       <span class="upload-btn-label">Selecionar arquivo</span>
       <div class="upload-status" id="uploadStatus"></div>
+    </div>
+  </div>
+
+  <!-- Upload adicional — só paradas/DF de arquivos antigos (meses anteriores),
+       separado do arquivo do mês corrente, nunca substitui o dado ao vivo. -->
+  <div class="upload-box" style="margin-top:16px">
+    <div class="upload-zone" id="dropZoneHist" onclick="document.getElementById('fileInputHist').click()" style="border-color:#4a5570">
+      <input type="file" id="fileInputHist" accept=".xlsx,.xls" multiple>
+      <div class="upload-icon">📚</div>
+      <h3>Carregar histórico (paradas e DF)</h3>
+      <p>Adiciona paradas e disponibilidade física de meses antigos (ex: Abril, Maio, Junho, Julho), sem substituir o mês atual — pode selecionar ou arrastar vários arquivos de uma vez.<br>Formatos aceitos: .xlsx / .xls</p>
+      <span class="upload-btn-label" style="background:#4a5570">Selecionar arquivo(s) histórico(s)</span>
+      <div class="upload-status" id="uploadStatusHist"></div>
     </div>
   </div>
 </div>
@@ -460,7 +473,7 @@ body { -webkit-overflow-scrolling: touch; }
       </div>
     </div>
 
-    <div class="footer">🏭 Planta de Beneficiamento Santa Felicidade &nbsp;|&nbsp; BI Impactantes &nbsp;|&nbsp; Set/2026</div>
+    <div class="footer">🏭 Planta de Beneficiamento Santa Felicidade &nbsp;|&nbsp; BI Impactantes &nbsp;|&nbsp; Out/2026</div>
   </div>
 </div>
 
@@ -819,7 +832,7 @@ body { -webkit-overflow-scrolling: touch; }
     </div>
   </div>
 
-  <div class="footer">🏭 Planta de Beneficiamento Santa Felicidade &nbsp;|&nbsp; Dashboard Produção &nbsp;|&nbsp; Set/2026</div>
+  <div class="footer">🏭 Planta de Beneficiamento Santa Felicidade &nbsp;|&nbsp; Dashboard Produção &nbsp;|&nbsp; Out/2026</div>
 </div>
 
 <!-- ABA FILTRO DE IMPACTANTES -->
@@ -955,7 +968,7 @@ body { -webkit-overflow-scrolling: touch; }
     </div>
   </div>
 
-  <div class="footer">🏭 Planta de Beneficiamento Santa Felicidade &nbsp;|&nbsp; Filtro de Impactantes &nbsp;|&nbsp; Set/2026</div>
+  <div class="footer">🏭 Planta de Beneficiamento Santa Felicidade &nbsp;|&nbsp; Filtro de Impactantes &nbsp;|&nbsp; Out/2026</div>
 </div>
 
 <!-- OURO PREVISTO — aba nova, isolada das demais -->
@@ -1059,7 +1072,7 @@ body { -webkit-overflow-scrolling: touch; }
     </div>
   </div>
 
-  <div class="footer">🏭 Planta de Beneficiamento Santa Felicidade &nbsp;|&nbsp; Ouro Previsto &nbsp;|&nbsp; Set/2026</div>
+  <div class="footer">🏭 Planta de Beneficiamento Santa Felicidade &nbsp;|&nbsp; Ouro Previsto &nbsp;|&nbsp; Out/2026</div>
 </div>
 
 <!-- BALANÇO DE MASSA — Mina → Pátio de Alimentação do Britador -->
@@ -1146,7 +1159,7 @@ body { -webkit-overflow-scrolling: touch; }
     <div style="height:220px;margin-top:10px"><canvas id="bmEstoqueBritChart"></canvas></div>
   </div>
 
-  <div class="footer">🏭 Planta de Beneficiamento Santa Felicidade &nbsp;|&nbsp; Balanço de Massa &nbsp;|&nbsp; Set/2026</div>
+  <div class="footer">🏭 Planta de Beneficiamento Santa Felicidade &nbsp;|&nbsp; Balanço de Massa &nbsp;|&nbsp; Out/2026</div>
 </div>
 
 <!-- MOVIMENTAÇÃO MINA — caminhões mina → pátios (entrada total por pilha, material) -->
@@ -1204,7 +1217,7 @@ body { -webkit-overflow-scrolling: touch; }
     </div>
   </div>
 
-  <div class="footer">🏭 Planta de Beneficiamento Santa Felicidade &nbsp;|&nbsp; Movimentação Mina &nbsp;|&nbsp; Set/2026</div>
+  <div class="footer">🏭 Planta de Beneficiamento Santa Felicidade &nbsp;|&nbsp; Movimentação Mina &nbsp;|&nbsp; Out/2026</div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -1746,6 +1759,60 @@ dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remov
 document.getElementById('fileInput').addEventListener('change',e=>{if(e.target.files[0])handleFile(e.target.files[0]);});
 function setStatus(m,c){const el=document.getElementById('uploadStatus');el.className='upload-status '+c;el.textContent=m;}
 
+const dropZoneHist = document.getElementById('dropZoneHist');
+dropZoneHist.addEventListener('dragover',e=>{e.preventDefault();dropZoneHist.classList.add('drag');});
+dropZoneHist.addEventListener('dragleave',()=>dropZoneHist.classList.remove('drag'));
+dropZoneHist.addEventListener('drop',e=>{e.preventDefault();dropZoneHist.classList.remove('drag');if(e.dataTransfer.files.length)handleHistoricoFiles(e.dataTransfer.files);});
+document.getElementById('fileInputHist').addEventListener('change',e=>{if(e.target.files.length)handleHistoricoFiles(e.target.files);});
+function setStatusHist(m,c){const el=document.getElementById('uploadStatusHist');el.className='upload-status '+c;el.textContent=m;}
+
+// Lê e mescla vários arquivos históricos de uma vez (ex: Abr+Mai+Jun juntos).
+// Processa um por um, na ordem, acumulando tudo antes de atualizar a tela.
+function handleHistoricoFiles(fileList) {
+  const arquivos = Array.from(fileList);
+  setStatusHist(`⏳ Lendo ${arquivos.length} planilha(s) histórica(s)...`, 's-loading');
+  let processados = 0, comErro = [];
+
+  function lerProximo(i) {
+    if (i >= arquivos.length) {
+      const totalDias = new Set([
+        ...Object.keys(HIST_DAILY.brit), ...Object.keys(HIST_DAILY.l1),
+        ...Object.keys(HIST_DAILY.l2),   ...Object.keys(HIST_DAILY.l3),
+      ]).size;
+      if (comErro.length) {
+        setStatusHist(`⚠️ ${processados}/${arquivos.length} arquivo(s) lidos, ${totalDias} dia(s) no total. Falharam: ${comErro.join(', ')}`, 's-error');
+      } else {
+        setStatusHist(`✅ ${processados} arquivo(s) — histórico com ${totalDias} dia(s) no total`, 's-ok');
+      }
+      if (typeof DADOS !== 'undefined' && DADOS.brit_daily) {
+        mergeHistorico();
+        refreshCurrentTab();
+      }
+      return;
+    }
+    const f = arquivos[i];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const wb = XLSX.read(e.target.result, {type:'array'});
+        const resultado = parseHistoricoPlanilha(wb);
+        ['brit','l1','l2','l3'].forEach(key => {
+          Object.assign(HIST_DAILY[key], resultado.daily[key]);
+          Object.assign(HIST_MOT[key],   resultado.mot[key]);
+        });
+        processados++;
+      } catch(err) {
+        console.error('Erro parser histórico ('+f.name+'):', err);
+        comErro.push(f.name);
+      }
+      lerProximo(i+1);
+    };
+    reader.onerror = function() { comErro.push(f.name); lerProximo(i+1); };
+    reader.readAsArrayBuffer(f);
+  }
+  lerProximo(0);
+}
+
 function handleFile(f, keepView) {
   setStatus('⏳ Lendo planilha...','s-loading');
   const reader = new FileReader();
@@ -2072,6 +2139,13 @@ function handleFile(f, keepView) {
       DADOS.l1_daily     = l1_daily;
       DADOS.l2_daily     = l2_daily;
       DADOS.l3_daily     = l3_daily;
+
+      // Mescla dados de paradas/DF de arquivos históricos (ex: meses antigos
+      // carregados via upload separado) — só preenche datas que o mês
+      // corrente não tem, nunca sobrescreve. Reaplica a cada parse (inclusive
+      // no refresh automático de 5 em 5 min), já que DADOS é reconstruído do
+      // zero a cada vez.
+      mergeHistorico();
 
       // Salva registros brutos para aba Análise
       DADOS.registros = [];
@@ -2656,7 +2730,202 @@ let R_MOT = { brit:{}, l1:{}, l2:{}, l3:{} };
 
 let R_KPI = { brit:{}, l1:{}, l2:{}, l3:{} };
 
+// ══════════════════════════════════════════════════════════════
+// HISTÓRICO — paradas e DF de arquivos antigos (ex: planilhas de meses
+// anteriores, formato simples de 15 colunas, sem as colunas de ouro).
+// Carregado separado do arquivo do mês corrente (upload dedicado) e
+// mesclado em DADOS/R_MOT a cada parse — NUNCA sobrescreve o mês atual,
+// só preenche datas que ainda não existem.
+let HIST_DAILY = {brit:{}, l1:{}, l2:{}, l3:{}};
+let HIST_MOT   = {brit:{}, l1:{}, l2:{}, l3:{}};
+
+function parseHistoricoPlanilha(wb) {
+  function cleanStr(v){ return v?String(v).replace(/\xa0/g,' ').trim():''; }
+  function fmtDate(d) {
+    if (!d) return null;
+    if (d instanceof Date) { const y=d.getFullYear(); if(y<2000||y>2100)return null; return y+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+    if (typeof d === 'number' && d > 40000) { const e=new Date(Math.round((d-25569)*86400*1000)); return e.getUTCFullYear()+'-'+String(e.getUTCMonth()+1).padStart(2,'0')+'-'+String(e.getUTCDate()).padStart(2,'0'); }
+    return null;
+  }
+  function toMins(v) {
+    if (v === null || v === undefined || v === '') return 0;
+    if (typeof v === 'number') { const frac = v - Math.floor(v); return Math.round(frac*24*60); }
+    if (v instanceof Date) return v.getUTCHours()*60 + v.getUTCMinutes() + Math.round(v.getUTCSeconds()/60);
+    if (typeof v === 'string' && v.includes(':')) { const p=v.split(':'); return parseInt(p[0]||0)*60+parseInt(p[1]||0); }
+    return 0;
+  }
+  // Acha o índice de uma coluna pelo texto do cabeçalho (não pela posição fixa) —
+  // planilhas antigas têm colunas em posições diferentes de um mês para outro
+  // (ex: algumas não têm "Pá Carregadeira", deslocando tudo uma casa).
+  function acharCol(header, ...termos) {
+    for (let i=0;i<header.length;i++) {
+      const h = cleanStr(header[i]).toLowerCase().replace(/\s+/g,' ');
+      if (termos.some(t => h.includes(t))) return i;
+    }
+    return -1;
+  }
+
+  const dailyOut = {brit:{}, l1:{}, l2:{}, l3:{}};
+  const motOut   = {brit:{}, l1:{}, l2:{}, l3:{}};
+
+  function acumula(key, chaveData, conch, prod, tipoParadaTxt, tParadaMins, podeContarEvento) {
+    if (!dailyOut['_tmp_'+key]) dailyOut['_tmp_'+key] = { parada:{}, hasdata:{}, mots:{} };
+    const tmp = dailyOut['_tmp_'+key];
+    if (conch > 0 || prod > 0 || tipoParadaTxt || tParadaMins > 0) tmp.hasdata[chaveData] = true;
+    if (!tmp.parada[chaveData]) tmp.parada[chaveData] = 0;
+    tmp.parada[chaveData] += tParadaMins;
+    if (podeContarEvento && tParadaMins > 0 && tipoParadaTxt) {
+      if (!tmp.mots[chaveData]) tmp.mots[chaveData] = [];
+      tmp.mots[chaveData].push([tipoParadaTxt, tParadaMins]);
+    }
+  }
+  function finaliza(key) {
+    const tmp = dailyOut['_tmp_'+key];
+    delete dailyOut['_tmp_'+key];
+    if (!tmp) return;
+    Object.entries(tmp.parada).sort().forEach(([d, pm]) => {
+      if (!tmp.hasdata[d]) return;
+      const hs = +(pm/60).toFixed(1);
+      // Se já existe dado desse dia (outra aba escrevendo na mesma key —
+      // não deveria acontecer, mas por segurança soma em vez de sobrescrever)
+      if (dailyOut[key][d]) {
+        dailyOut[key][d] = { prod: +Math.max(0, dailyOut[key][d].prod - hs).toFixed(1), parada: +(dailyOut[key][d].parada + hs).toFixed(1) };
+      } else {
+        dailyOut[key][d] = { prod: +Math.max(0, 24-hs).toFixed(1), parada: hs };
+      }
+    });
+    Object.entries(tmp.mots).forEach(([d, lista]) => {
+      const conv = lista.map(([m,mins]) => [m, +(mins/60).toFixed(2)]).filter(([,h]) => h>0);
+      motOut[key][d] = (motOut[key][d]||[]).concat(conv).sort((a,b)=>b[1]-a[1]);
+    });
+  }
+
+  // Loop genérico de linha-a-linha, usado pelos 2 formatos abaixo
+  function processarPlanilha(rows, key, C) {
+    // Formato Britador/Linha (Jun/Jul...) exige Horário Inicial preenchido pra
+    // contar uma ocorrência (evita duplicar linhas de continuação da mesma
+    // parada). Formato antigo (Abr/Mai) não tem essa coluna — não exige nada.
+    const exigeHi = C.hi != null && C.hi >= 0;
+    let ultimaData = null;
+    rows.slice(1).forEach(r => {
+      const data = fmtDate(r[0]);
+      if (!data) return;
+      const hora = r[1];
+      let horaNum = 25;
+      if (hora instanceof Date)          horaNum = hora.getHours();
+      else if (typeof hora === 'number') horaNum = Math.floor((hora % 1) * 24 + 0.0001);
+      const chaveData = (horaNum < 7 && ultimaData) ? ultimaData : data;
+      if (horaNum >= 7) ultimaData = data;
+
+      const conch = typeof r[C.conch]==='number' ? r[C.conch] : 0;
+      const prod  = typeof r[C.prod]==='number'  ? r[C.prod]  : 0;
+      const tParadaMins = toMins(r[C.tparada]);
+      let motivoTxt;
+      if (C.motivo != null && C.motivo >= 0) {
+        // Formato antigo (Abr/Mai): um único campo "Motivo da parada"
+        motivoTxt = cleanStr(r[C.motivo]);
+      } else {
+        // Formato Britador/Linha (Jun/Jul...): Tipo + Equipamento + Descrição
+        const tipo  = cleanStr(r[C.tipo_parada]);
+        const equip = cleanStr(r[C.equip]);
+        const desc  = cleanStr(r[C.desc]);
+        motivoTxt = (tipo || equip || desc) ? [tipo,equip,desc].join(' ∥ ') : '';
+      }
+      const podeContarEvento = exigeHi ? (r[C.hi] != null) : true;
+      acumula(key, chaveData, conch, prod, motivoTxt, tParadaMins, podeContarEvento);
+    });
+    finaliza(key);
+  }
+
+  // ── Formato "Britador"/"Linha X" (usado a partir de ~Jun/2026) ──
+  // Detecta as colunas pelo texto do cabeçalho — funciona tanto na versão
+  // com "Pá Carregadeira" (Jul+) quanto sem ela (Jun), que ficam deslocadas.
+  const ABA_MAP_NOVO = {Britador:'brit','Linha 1':'l1','Linha 2':'l2','Linha 3':'l3'};
+  Object.entries(ABA_MAP_NOVO).forEach(([sheetName, key]) => {
+    const ws = wb.Sheets[sheetName];
+    if (!ws) return;
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+    const header = rows[0] || [];
+    const C = {
+      conch:       acharCol(header, 'conchada'),
+      prod:        acharCol(header, 'produção','producao'),
+      tipo_parada: acharCol(header, 'tipo de parada'),
+      equip:       acharCol(header, 'equipamento'),
+      desc:        acharCol(header, 'descrição','descricao'),
+      hi:          acharCol(header, 'horário\ninicial','horario inicial','hora inicial'),
+      tparada:     acharCol(header, 'tempo total','tempo de parada','tempo da parada'),
+    };
+    if (C.conch < 0 || C.tparada < 0) return; // header não bate com o esperado — pula
+    processarPlanilha(rows, key, C);
+  });
+
+  // ── Formato "PLANTA PRODUÇÃO" / "PRODUÇÃO DIÁRIA ..." (Abr/Mai/2026) ──
+  // Sem coluna de Horário Inicial, sem separação Tipo/Equipamento/Descrição —
+  // só um campo único "Motivo da parada".
+  const wsBritAntigo = wb.Sheets[' PRODUÇÃO DIÁRIA BRITAGEM'] || wb.Sheets['PRODUÇÃO DIÁRIA BRITAGEM'] || wb.Sheets['Produção Diária Britagem'];
+  if (wsBritAntigo) {
+    const rows = XLSX.utils.sheet_to_json(wsBritAntigo, {header:1, defval:null, raw:true});
+    const header = rows[0] || [];
+    const C = {
+      conch:  acharCol(header, 'conchada'),
+      prod:   acharCol(header, 'produção','producao'),
+      motivo: acharCol(header, 'motivo'),
+      tparada:acharCol(header, 'tempo de parada','tempo da parada'),
+      hi: -1,
+    };
+    // Nessa aba específica, a coluna de tempo de parada às vezes vem com o
+    // cabeçalho em branco (só um espaço) — se não achou pelo nome mas achou
+    // "motivo", assume que é a coluna logo ao lado dele.
+    if (C.tparada < 0 && C.motivo >= 0) C.tparada = C.motivo + 1;
+    if (C.conch >= 0 && C.tparada >= 0) processarPlanilha(rows, 'brit', C);
+  }
+  const wsMoagemAntigo = wb.Sheets['PRODUÇÃO DIÁRIA MOAGEM'] || wb.Sheets['Produção Diária Moagem'];
+  if (wsMoagemAntigo) {
+    const rows = XLSX.utils.sheet_to_json(wsMoagemAntigo, {header:1, defval:null, raw:true});
+    const header = rows[0] || [];
+    // L1: primeiro bloco de colunas
+    const C1 = {
+      conch:  acharCol(header, 'conchada l1','conchada'),
+      prod:   acharCol(header, 'produção l1','producao l1'),
+      motivo: acharCol(header, 'motivo da parada l1','motivo l1'),
+      tparada:acharCol(header, 'tempo de parada l1','tempo l1'),
+      hi: -1,
+    };
+    if (C1.conch >= 0 && C1.tparada >= 0) processarPlanilha(rows, 'l1', C1);
+    // L3: segundo bloco de colunas (mesma aba, colunas mais à direita)
+    const C3 = {
+      conch:  acharCol(header, 'conchada l3','conchada  l3'),
+      prod:   acharCol(header, 'produção l3','producao l3'),
+      motivo: acharCol(header, 'motivo da parada l3','motivo l3'),
+      tparada:acharCol(header, 'tempo de parada l3','tempo l3'),
+      hi: -1,
+    };
+    if (C3.conch >= 0 && C3.tparada >= 0) processarPlanilha(rows, 'l3', C3);
+  }
+
+  return { daily: dailyOut, mot: motOut };
+}
+
+// Mescla HIST_DAILY/HIST_MOT em DADOS/R_MOT — só preenche datas que ainda
+// não existem no mês corrente (nunca sobrescreve dado ao vivo).
+function mergeHistorico() {
+  ['brit','l1','l2','l3'].forEach(key => {
+    const alvo = key+'_daily';
+    if (!DADOS[alvo]) DADOS[alvo] = {};
+    Object.entries(HIST_DAILY[key]||{}).forEach(([d,v]) => {
+      if (!(d in DADOS[alvo])) DADOS[alvo][d] = v;
+    });
+    if (typeof R_MOT !== 'undefined') {
+      if (!R_MOT[key]) R_MOT[key] = {};
+      Object.entries(HIST_MOT[key]||{}).forEach(([d,lista]) => {
+        if (!(d in R_MOT[key])) R_MOT[key][d] = lista;
+      });
+    }
+  });
+}
+
 let PROD_PLANTA = {resumo:[], prod_linha:{brit:{},l1:{},l2:{},l3:{}}, material_tot:{brit:{},l1:{},l2:{},l3:{}}, material_dia:{brit:{},l1:{},l2:{},l3:{}}, material_dia_ton:{brit:{},l1:{},l2:{},l3:{}}, balanca:{brit:{},l1:{},l2:{},l3:{}}, ouro:{brit:{},l1:{},l2:{},l3:{}}, ouro_hora:{brit:{},l1:{},l2:{},l3:{}}, ouro_resumo:{}};
+
 // Britador Móvel — aba nova e independente, sem balança (produção sempre calculada)
 let BRIT_MOVEL = {};
 // Movimentação Mina — viagens de caminhão MINA -> Pátio de Alimentação, por dia
