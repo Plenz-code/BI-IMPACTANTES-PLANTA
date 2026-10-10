@@ -1090,7 +1090,7 @@ body { -webkit-overflow-scrolling: touch; }
   </div>
 
   <!-- Estoque por pilha (individual + geral), cada um com composição de material -->
-  <div style="font-size:10px;color:#666;margin-bottom:4px">📦 Estoque físico atual — inclui saldo herdado de Agosto/2026 (mês em que a Movimentação Mina deixou de ser rastreada por completo na planilha da planta). Composição de material reflete só a entrada de Setembro (o saldo herdado não tem detalhamento por material).</div>
+  <div style="font-size:10px;color:#666;margin-bottom:4px">📦 Estoque físico atual — saldo inicial = fechamento de Agosto/2026 + movimento do período selecionado (fechamento de Setembro ainda não incorporado). Composição de material reflete só a entrada do período (o saldo inicial não tem detalhamento por material).</div>
   <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:10px" class="bm-kpi-grid">
     <div class="kpi-card" style="--cor:#4caf50">
       <div class="kpi-label">Estoque — Pátio Alimentação</div>
@@ -2036,8 +2036,8 @@ function handleFile(f, keepView) {
         })();
         Object.entries(parada_map).sort().forEach(([d, pm]) => {
           if (!has_data_map[d]) return;
-          const hs = +(pm/60).toFixed(1);
-          out[d] = { prod: +Math.max(0, 24-hs).toFixed(1), parada: hs };
+          const hs = +(pm/60).toFixed(4); // sem arredondar a 0,1h antes da DF
+          out[d] = { prod: +Math.max(0, 24-hs).toFixed(4), parada: hs };
         });
         return out;
       }
@@ -2417,7 +2417,26 @@ function handleFile(f, keepView) {
         // A partir de Set/2026, a Movimentação Mina passou a ser separada por mês
         // (a planta só mantém o mês corrente nessa aba). O histórico de meses
         // anteriores fica congelado como saldo inicial — ver SALDO_INICIAL_AGOSTO.
-        const ws = wb.Sheets['Movimentação Mina Setembro'] || wb.Sheets['Movimentação Mina'];
+        // Escolhe a aba do MÊS DA PLANILHA ("Movimentação Mina Outubro" etc.),
+        // pelo mês da primeira data da aba Resumo — assim a virada de mês não
+        // exige mexer no código. Fallback: aba de mês mais recente existente,
+        // e por fim a aba antiga sem mês ("Movimentação Mina").
+        const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+        const semAcento = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().trim();
+        const abaMov = mesNome => wb.SheetNames.find(n => semAcento(n) === semAcento('Movimentação Mina ' + mesNome));
+        let nomeAbaMov = null;
+        const wsResumoMes = wb.Sheets['Resumo'];
+        if (wsResumoMes) {
+          const rr = XLSX.utils.sheet_to_json(wsResumoMes, {header:1, defval:null, raw:true});
+          for (const r of rr) {
+            const d = fmtDate(r[1]);
+            if (d) { nomeAbaMov = abaMov(MESES_PT[parseInt(d.slice(5,7),10)-1]); break; }
+          }
+        }
+        if (!nomeAbaMov) {
+          for (let i = 11; i >= 0 && !nomeAbaMov; i--) nomeAbaMov = abaMov(MESES_PT[i]);
+        }
+        const ws = (nomeAbaMov && wb.Sheets[nomeAbaMov]) || wb.Sheets['Movimentação Mina'];
         if (!ws) { MINA_ENTRADA = outPatio; MINA_FORMIGUINHA = outFormig; MINA_PATIOC2 = outC2; MINA_BRITADOS = outBrit; return; }
 
         const PATIO_ALIMENTACAO = '04 - ESTOQUE MINERIO - PATIO DE ALIMENTACAO';
@@ -2785,13 +2804,13 @@ function parseHistoricoPlanilha(wb) {
     if (!tmp) return;
     Object.entries(tmp.parada).sort().forEach(([d, pm]) => {
       if (!tmp.hasdata[d]) return;
-      const hs = +(pm/60).toFixed(1);
+      const hs = +(pm/60).toFixed(4); // sem arredondar a 0,1h antes da DF
       // Se já existe dado desse dia (outra aba escrevendo na mesma key —
       // não deveria acontecer, mas por segurança soma em vez de sobrescrever)
       if (dailyOut[key][d]) {
         dailyOut[key][d] = { prod: +Math.max(0, dailyOut[key][d].prod - hs).toFixed(1), parada: +(dailyOut[key][d].parada + hs).toFixed(1) };
       } else {
-        dailyOut[key][d] = { prod: +Math.max(0, 24-hs).toFixed(1), parada: hs };
+        dailyOut[key][d] = { prod: +Math.max(0, 24-hs).toFixed(4), parada: hs };
       }
     });
     Object.entries(tmp.mots).forEach(([d, lista]) => {
@@ -3433,7 +3452,11 @@ function renderBalanco() {
     const el = document.getElementById(elId);
     if (!el) return;
     const sinalSet = setembroT < 0 ? '-' : '';
-    el.textContent = `Ago: ${fmtT(agostoT*1000)}  |  Set: ${sinalSet}${fmtT(Math.abs(setembroT)*1000)}`;
+    // Rótulo do movimento = mês real do período selecionado (antes era "Set" fixo)
+    const MESES_ABREV = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    const refData = periodoFim || periodoIni || (todasDatas.length ? todasDatas[todasDatas.length-1] : '');
+    const mesMov = refData ? MESES_ABREV[parseInt(refData.slice(5,7),10)-1] : 'Mês';
+    el.textContent = `Saldo inicial: ${fmtT(agostoT*1000)}  |  ${mesMov}: ${sinalSet}${fmtT(Math.abs(setembroT)*1000)}`;
   }
   setEstoqueKPI('bmKpiEstPatio',  'bmKpiEstPatioSub',  estoqueAtualPatio,  saldoPeriodo, '#4caf50');
   setEstoqueKPI('bmKpiEstFormig', 'bmKpiEstFormigSub', estoqueAtualFormig, saldoFormig,  '#00bcd4');
@@ -3692,11 +3715,14 @@ function prodEfetiva(key, d) {
     pD = fig; pN = 0; dClosed = fig > 0; nClosed = fig > 0;
   }
   let total = pD + pN;
-  // Britador: quando o dia fechou (TOTAL GLOBAL DO DIA), usa o valor EXATO
-  // que já está pronto na planilha (coluna Totalizador da Balança daquela
-  // linha) em vez de somar pD+pN por conta própria — evita qualquer risco de
-  // recalcular diferente da planilha (ex: descontos que só existem lá).
-  if (key === 'brit' && TOTAL_DIA_BRIT[d] != null) total = TOTAL_DIA_BRIT[d];
+  // Britador: a linha TOTAL GLOBAL DO DIA (col O) traz o valor já líquido do
+  // Desconto Rateado, mas SÓ da parte que tem balança lançada (O14+O27−P).
+  // Com o noturno ainda aberto, esse total contém só o diurno — então soma a
+  // estimativa hora a hora do(s) turno(s) ainda sem balança. Sem isso, o
+  // noturno só aparecia no BI depois de lançar a balança.
+  if (key === 'brit' && TOTAL_DIA_BRIT[d] != null) {
+    total = TOTAL_DIA_BRIT[d] + (dClosed ? 0 : pD) + (nClosed ? 0 : pN);
+  }
   const estimando = (!dClosed && cd > 0) || (!nClosed && cn > 0);
   return { total, pD, pN, dClosed, nClosed, estimando, conch: cd + cn };
 }
@@ -3938,7 +3964,7 @@ function renderDashProd() {
     // Recalcula DF com base real do turno (aplica para qualquer dia com turno em andamento)
     const hsReal  = kpi.hs;
     const base    = _calcBase(data);
-    const hpReal  = +Math.max(0, base - hsReal).toFixed(1);
+    const hpReal  = Math.max(0, base - hsReal); // sem arredondar antes de calcular a DF
     const dfReal  = base > 0 ? +(hpReal / base * 100).toFixed(1) : kpi.df;
     const cor = dfReal>=85?'#4caf50':dfReal>=60?'#ffc107':'#f44336';
     if(dfEl){ dfEl.textContent=dfReal.toFixed(1)+'%'; dfEl.style.color=cor; }
@@ -3969,8 +3995,14 @@ function renderDashProd() {
       // valores brutos por turno e não refletem ajustes que só existem na
       // linha de total (ex: desconto rateado) — somar eles separadamente
       // reintroduziria o mesmo problema que prodEfetiva() já resolve.
+      // TOTAL_DIA_BRIT só cobre a parte com balança lançada; turno ainda
+      // aberto entra como estimativa (mesma regra das Linhas 1/2/3).
       if (key === 'brit' && TOTAL_DIA_BRIT[d] != null) {
-        bal += pe.total;
+        bal += TOTAL_DIA_BRIT[d];
+        if (d !== _hojeMsStr) {
+          if (!pe.dClosed) est += pe.pD;
+          if (!pe.nClosed) est += pe.pN;
+        }
         return;
       }
       if (d === _hojeMsStr) {
