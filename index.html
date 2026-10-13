@@ -1976,7 +1976,16 @@ function handleFile(f, keepView) {
               }
               if (horaMinutos !== null) {
                 const hh = Math.floor(horaMinutos/60), mm = horaMinutos%60;
-                const horaDate = new Date(data + 'T' + String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0') + ':00');
+                // Data REAL do calendário: 00:00–06:59 pertence ao turno noturno
+                // do dia `chave`, mas acontece no dia seguinte. Antes o rótulo
+                // mostrava a data do turno (ex: "12/10 06:00" às 06:00 do dia 13),
+                // dando a impressão de que o BI tinha parado na madrugada.
+                const dataCal = (() => {
+                  if (hh >= 7) return chave;
+                  const dt = new Date(chave + 'T12:00:00'); dt.setDate(dt.getDate() + 1);
+                  return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+                })();
+                const horaDate = new Date(dataCal + 'T' + String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0') + ':00');
                 if (!isNaN(horaDate)) {
                   // Para comparação, usa hora-dentro-do-turno: 23:00=16h, 00:00=17h, 3:00=20h
                   const hTurno = hh >= 7 ? hh - 7 + mm/60 : hh + 17 + mm/60;
@@ -1986,7 +1995,7 @@ function handleFile(f, keepView) {
                       dia: chave,
                       hTurno,
                       data: horaDate,
-                      label: new Date(chave + 'T' + String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0') + ':00')
+                      label: new Date(dataCal + 'T' + String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0') + ':00')
                               .toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})
                     };
                   }
@@ -3677,7 +3686,16 @@ function resetDashProd() {
     ...Object.keys(R_MOT.brit||{}), ...Object.keys(R_MOT.l1||{}),
     ...Object.keys(R_MOT.l2||{}),  ...Object.keys(R_MOT.l3||{})
   ])];
-  const datas = [...new Set([...datasBalanca, ...datasConch, ...datasImp])].sort();
+  // Turno que acabou de começar e só tem parada lançada (sem conchada nem
+  // balança) não puxa o painel pra ele: senão, às 07:xx, uma parada do novo
+  // diurno fazia o BI abrir num dia vazio e o noturno anterior sumia da tela.
+  // "Dia ativo" = data do turno em curso (00:00–06:59 ainda é o dia anterior).
+  const _agoraDA = new Date();
+  if (_agoraDA.getHours() < 7) _agoraDA.setDate(_agoraDA.getDate() - 1);
+  const diaAtivo = _agoraDA.getFullYear()+'-'+String(_agoraDA.getMonth()+1).padStart(2,'0')+'-'+String(_agoraDA.getDate()).padStart(2,'0');
+  const comProducao = new Set([...datasBalanca, ...datasConch]);
+  const datasImpOk = datasImp.filter(d => d < diaAtivo || comProducao.has(d));
+  const datas = [...new Set([...datasBalanca, ...datasConch, ...datasImpOk])].sort();
   const el = document.getElementById('dpData');
   const ultimaData = datas.length ? datas[datas.length-1] : '';
   setDataInputSync(el, ultimaData);
