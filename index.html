@@ -374,6 +374,7 @@ body { -webkit-overflow-scrolling: touch; }
     <button class="tab-btn" id="btnOuro" onclick="goTab('ouro',this)">🥇 Ouro Previsto</button>
     <button class="tab-btn" id="btnBalanco" onclick="goTab('balanco',this)">⚖️ Balanço de Massa</button>
     <button class="tab-btn" id="btnMovMina" onclick="goTab('movmina',this)">🚚 Movimentação Mina</button>
+    <button class="tab-btn" id="btnRetomada" onclick="goTab('retomada',this)">🔁 Retomada entre Pátios</button>
     <button class="tab-btn" id="btnDash" onclick="goTab('dashboard',this)">📊 Overview DF</button>
     <button class="tab-btn" id="btnDiario" onclick="goTab('diario',this)">📅 Visualização Diária</button>
     <button class="tab-btn" id="btnRelat" onclick="goTab('relatorio',this)">📈 Relatório do Dia</button>
@@ -1220,6 +1221,87 @@ body { -webkit-overflow-scrolling: touch; }
   <div class="footer">🏭 Planta de Beneficiamento Santa Felicidade &nbsp;|&nbsp; Movimentação Mina &nbsp;|&nbsp; Out/2026</div>
 </div>
 
+<!-- RETOMADA ENTRE PÁTIOS — viagens com produto "RETOMADA ..." (aba Movimentação Mina) -->
+<div class="tab-content" id="tab-retomada">
+  <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;background:#131620;border:1px solid #252838;border-radius:6px;padding:10px 16px;margin-bottom:10px">
+    <div class="filtro-group">
+      <label>Data Início</label>
+      <input type="date" id="rtIni" onchange="renderRetomada()">
+    </div>
+    <div class="filtro-group">
+      <label>Data Fim</label>
+      <input type="date" id="rtFim" onchange="renderRetomada()">
+    </div>
+    <div class="filtro-group">
+      <label>Produto</label>
+      <select id="rtProduto" onchange="renderRetomada()" style="background:#0f1117;color:#e8e8e8;border:1px solid #252838;border-radius:4px;padding:5px 8px;font-size:12px"><option value="">Todos</option></select>
+    </div>
+    <div class="filtro-group">
+      <label>Rota</label>
+      <select id="rtRota" onchange="renderRetomada()" style="background:#0f1117;color:#e8e8e8;border:1px solid #252838;border-radius:4px;padding:5px 8px;font-size:12px"><option value="">Todas</option></select>
+    </div>
+    <button class="filtro-reset" onclick="resetRetomada()">↺ Mês inteiro</button>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px" class="bm-kpi-grid">
+    <div class="kpi-card" style="--cor:#e8a020">
+      <div class="kpi-label">Total Retomado</div>
+      <div class="kpi-value" id="rtKpiTotal" style="color:#e8a020">—</div>
+      <div class="kpi-sub" id="rtKpiTotalSub"></div>
+      <div style="margin-top:6px" id="rtMatTotal"></div>
+    </div>
+    <div class="kpi-card" style="--cor:#4a90d9">
+      <div class="kpi-label">Viagens</div>
+      <div class="kpi-value" id="rtKpiViagens" style="color:#4a90d9">—</div>
+      <div class="kpi-sub" id="rtKpiViagensSub"></div>
+    </div>
+    <div class="kpi-card" style="--cor:#26a69a">
+      <div class="kpi-label">Média por Dia</div>
+      <div class="kpi-value" id="rtKpiMedia" style="color:#26a69a">—</div>
+      <div class="kpi-sub" id="rtKpiMediaSub"></div>
+    </div>
+    <div class="kpi-card" style="--cor:#ff7043">
+      <div class="kpi-label">Principal Rota</div>
+      <div class="kpi-value" id="rtKpiRota" style="color:#ff7043;font-size:14px;line-height:1.3">—</div>
+      <div class="kpi-sub" id="rtKpiRotaSub"></div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:10px;margin-bottom:10px" class="bm-bottom-grid">
+    <div class="chart-card">
+      <div class="chart-title">📊 Retomada Diária por Produto (t)</div>
+      <div style="height:260px"><canvas id="rtDiarioChart"></canvas></div>
+    </div>
+    <div class="chart-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center">
+      <div class="chart-title">Produto — % da Retomada</div>
+      <div style="height:180px;width:100%"><canvas id="rtPieMaterial"></canvas></div>
+      <div id="rtPieMaterialLegend" style="margin-top:8px;font-size:12px;line-height:1.8;text-align:center"></div>
+    </div>
+  </div>
+
+  <div class="imp-section">
+    <div class="imp-header">🔁 Retomada por Rota (Origem → Destino)</div>
+    <div style="overflow-x:auto">
+      <table class="imp-table" style="font-size:12px">
+        <thead><tr><th>Origem</th><th>Destino</th><th>Produtos</th><th style="text-align:right">Viagens</th><th style="text-align:right">Toneladas</th><th style="text-align:right">%</th></tr></thead>
+        <tbody id="rtRotasBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="imp-section">
+    <div class="imp-header">🚚 Todas as Movimentações de Retomada <span id="rtListaCount" style="font-size:11px;color:#888;font-weight:400"></span></div>
+    <div style="overflow:auto;max-height:480px">
+      <table class="alert-table">
+        <thead style="position:sticky;top:0"><tr><th>Data</th><th>Hora</th><th>Equipamento</th><th>Operador</th><th>Origem</th><th>Produto</th><th>Destino</th><th style="text-align:right">t</th></tr></thead>
+        <tbody id="rtListaBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer">🏭 Planta de Beneficiamento Santa Felicidade &nbsp;|&nbsp; Retomada entre Pátios &nbsp;|&nbsp; Out/2026</div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <button class="img-btn"  id="imgBtn"   onclick="gerarImagem()">📷 Salvar Imagem</button>
 <button class="print-btn" id="printBtn" onclick="abrirModalPDF()">🖨 Gerar PDF</button>
@@ -1265,7 +1347,7 @@ function goTab(name, btn) {
     // Garante que o botão certo fica ativo mesmo sem referência direta
     const btnMap = {upload:'btnUpload',producao:'btnProducao',dashboard:'btnDash',
                     diario:'btnDiario',relatorio:'btnRelat',filtro:'btnFiltro',ouro:'btnOuro',
-                    balanco:'btnBalanco',movmina:'btnMovMina'};
+                    balanco:'btnBalanco',movmina:'btnMovMina',retomada:'btnRetomada'};
     const b = document.getElementById(btnMap[name]);
     if(b) b.classList.add('active');
   }
@@ -1277,6 +1359,7 @@ function goTab(name, btn) {
   if(name==='ouro')      resetOuro();
   if(name==='balanco')   resetBalanco();
   if(name==='movmina')   resetMovMina();
+  if(name==='retomada')  resetRetomada();
 }
 
 // Re-renderiza a aba atualmente aberta com dados novos, SEM mexer em nenhum
@@ -1295,6 +1378,7 @@ function refreshCurrentTab() {
   else if (name === 'ouro')       renderOuro();
   else if (name === 'balanco')    renderBalanco();
   else if (name === 'movmina')    renderMovMina();
+  else if (name === 'retomada')   renderRetomada();
 }
 
 /* ── Seção ── */
@@ -2423,6 +2507,7 @@ function handleFile(f, keepView) {
         const outFormig = {}; // data -> {entrada, saida, viagensIn, viagensOut, material:{produto:ton}}
         const outC2     = {}; // data -> {entrada, saida, viagensIn, viagensOut, material:{produto:ton}}
         const outBrit   = {}; // data -> {entrada, saida, viagensIn, viagensOut, material:{produto:ton}}
+        const outRet    = []; // [{data, hora, equip, operador, origem, produto, destino, ton}] — viagens de retomada
         // A partir de Set/2026, a Movimentação Mina passou a ser separada por mês
         // (a planta só mantém o mês corrente nessa aba). O histórico de meses
         // anteriores fica congelado como saldo inicial — ver SALDO_INICIAL_AGOSTO.
@@ -2446,7 +2531,7 @@ function handleFile(f, keepView) {
           for (let i = 11; i >= 0 && !nomeAbaMov; i--) nomeAbaMov = abaMov(MESES_PT[i]);
         }
         const ws = (nomeAbaMov && wb.Sheets[nomeAbaMov]) || wb.Sheets['Movimentação Mina'];
-        if (!ws) { MINA_ENTRADA = outPatio; MINA_FORMIGUINHA = outFormig; MINA_PATIOC2 = outC2; MINA_BRITADOS = outBrit; return; }
+        if (!ws) { MINA_ENTRADA = outPatio; MINA_FORMIGUINHA = outFormig; MINA_PATIOC2 = outC2; MINA_BRITADOS = outBrit; MINA_RETOMADA = outRet; return; }
 
         const PATIO_ALIMENTACAO = '04 - ESTOQUE MINERIO - PATIO DE ALIMENTACAO';
         const PILHA_FORMIGUINHA = '04 - ESTOQUE MINERIO - PILHA FORMIGUINHA';
@@ -2478,50 +2563,70 @@ function handleFile(f, keepView) {
           if (!data) return;
           const ton = typeof r[14] === 'number' ? r[14] : 0;
           const produto = cleanStr(r[7]) || 'N/D';
+          // Origem "cava" = Local Carga com "MINA" (ex.: 01 - MINA - CAVA SUMP).
+          const daCava = localCarga.toUpperCase().includes('MINA');
+          // Nos cards da Movimentação Mina o TOTAL de entrada NÃO conta retomada
+          // (produto "RETOMADA ..."); ela aparece só nos chips de material.
+          // Material novo de outras origens (Barragem, Planta) entra no total.
+          const ehRetomada = produto.toUpperCase().includes('RETOMADA');
 
-          // ── Pátio de Alimentação: só entrada, só quando vem de local com "MINA" ──
-          if (localCarga.toUpperCase().includes('MINA') && localDescarga === PATIO_ALIMENTACAO) {
-            if (!outPatio[data]) outPatio[data] = { ton:0, viagens:0, material:{} };
+          // ── Retomada entre pátios: toda viagem com produto "RETOMADA ..." ──
+          if (ehRetomada) {
+            const hf = typeof r[9] === 'string' ? (r[9].trim().split(' ')[1] || '').slice(0,5) : '';
+            outRet.push({ data, hora:hf, equip:cleanStr(r[0]), operador:cleanStr(r[1]),
+                          origem:localCarga, produto, destino:localDescarga, ton });
+          }
+
+          // ── Pátio de Alimentação: total = só entrada vinda da cava ("MINA") ──
+          if (daCava && localDescarga === PATIO_ALIMENTACAO) {
+            if (!outPatio[data]) outPatio[data] = { ton:0, viagens:0, material:{}, matOutros:{} };
             outPatio[data].ton += ton;
             outPatio[data].viagens += 1;
             outPatio[data].material[produto] = (outPatio[data].material[produto]||0) + ton;
+          } else if (localDescarga === PATIO_ALIMENTACAO) {
+            // Retomada/outras origens: fora do total e do Balanço, só p/ os chips do card
+            if (!outPatio[data]) outPatio[data] = { ton:0, viagens:0, material:{}, matOutros:{} };
+            outPatio[data].matOutros[produto] = (outPatio[data].matOutros[produto]||0) + ton;
           }
 
           // ── Pilha Formiguinha: entrada (qualquer origem) e saída (caminhão saindo de lá) ──
           if (localDescarga === PILHA_FORMIGUINHA) {
-            if (!outFormig[data]) outFormig[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0, material:{} };
+            if (!outFormig[data]) outFormig[data] = { entrada:0, entradaSemRet:0, saida:0, viagensIn:0, viagensOut:0, material:{} };
             outFormig[data].entrada += ton;
+            if (!ehRetomada) outFormig[data].entradaSemRet += ton;
             outFormig[data].viagensIn += 1;
             outFormig[data].material[produto] = (outFormig[data].material[produto]||0) + ton;
           }
           if (localCarga === PILHA_FORMIGUINHA) {
-            if (!outFormig[data]) outFormig[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0, material:{} };
+            if (!outFormig[data]) outFormig[data] = { entrada:0, entradaSemRet:0, saida:0, viagensIn:0, viagensOut:0, material:{} };
             outFormig[data].saida += ton;
             outFormig[data].viagensOut += 1;
           }
 
           // ── Pátio C2: entrada (qualquer origem) e saída (caminhão saindo de lá) ──
           if (localDescarga === PATIO_C2) {
-            if (!outC2[data]) outC2[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0, material:{} };
+            if (!outC2[data]) outC2[data] = { entrada:0, entradaSemRet:0, saida:0, viagensIn:0, viagensOut:0, material:{} };
             outC2[data].entrada += ton;
+            if (!ehRetomada) outC2[data].entradaSemRet += ton;
             outC2[data].viagensIn += 1;
             outC2[data].material[produto] = (outC2[data].material[produto]||0) + ton;
           }
           if (localCarga === PATIO_C2) {
-            if (!outC2[data]) outC2[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0, material:{} };
+            if (!outC2[data]) outC2[data] = { entrada:0, entradaSemRet:0, saida:0, viagensIn:0, viagensOut:0, material:{} };
             outC2[data].saida += ton;
             outC2[data].viagensOut += 1;
           }
 
           // ── Pátio Britados: entrada (qualquer origem) e saída (caminhão saindo de lá) ──
           if (localDescarga === PATIO_BRITADOS) {
-            if (!outBrit[data]) outBrit[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0, material:{} };
+            if (!outBrit[data]) outBrit[data] = { entrada:0, entradaSemRet:0, saida:0, viagensIn:0, viagensOut:0, material:{} };
             outBrit[data].entrada += ton;
+            if (!ehRetomada) outBrit[data].entradaSemRet += ton;
             outBrit[data].viagensIn += 1;
             outBrit[data].material[produto] = (outBrit[data].material[produto]||0) + ton;
           }
           if (localCarga === PATIO_BRITADOS) {
-            if (!outBrit[data]) outBrit[data] = { entrada:0, saida:0, viagensIn:0, viagensOut:0, material:{} };
+            if (!outBrit[data]) outBrit[data] = { entrada:0, entradaSemRet:0, saida:0, viagensIn:0, viagensOut:0, material:{} };
             outBrit[data].saida += ton;
             outBrit[data].viagensOut += 1;
           }
@@ -2531,6 +2636,7 @@ function handleFile(f, keepView) {
         MINA_FORMIGUINHA = outFormig;
         MINA_PATIOC2     = outC2;
         MINA_BRITADOS    = outBrit;
+        MINA_RETOMADA    = outRet;
       })();
 
       // Atualiza datas disponíveis no seletor do relatório
@@ -2966,6 +3072,8 @@ let MINA_ENTRADA = {};
 let MINA_FORMIGUINHA = {};
 let MINA_PATIOC2 = {};
 let MINA_BRITADOS = {};
+// Viagens de retomada entre pátios (produto "RETOMADA ..."), uma por linha
+let MINA_RETOMADA = [];
 
 // ══════════════════════════════════════════════════════════════
 // SALDO INICIAL — herdado de Agosto/2026
@@ -3595,8 +3703,11 @@ function renderMovMina() {
 
   const serieEntrada = [], serieConsumo = [];
   let totalEntradaPatio = 0, totalConsumo = 0;
+  // Totais = entrada sem retomada; "fora*" = retomada (só aparece nos chips)
   let totalEntradaFormig = 0, totalEntradaC2 = 0, totalEntradaBrit = 0;
-  const matEntrada = {}, matFormig = {}, matC2 = {}, matBrit = {};
+  let foraPatio = 0, foraFormig = 0, foraC2 = 0, foraBrit = 0;
+  const matEntrada = {}, matPatioCard = {}, matFormig = {}, matC2 = {}, matBrit = {};
+  const somaMat = (dst, src) => Object.entries(src||{}).forEach(([mat,v]) => { dst[mat] = (dst[mat]||0) + v; });
 
   todasDatas.forEach(d => {
     const mina = MINA_ENTRADA[d] || null;
@@ -3608,28 +3719,34 @@ function renderMovMina() {
     serieConsumo.push(+consumoDia.toFixed(1));
     totalEntradaPatio += entradaDia;
     totalConsumo += consumoDia;
-    if (mina) Object.entries(mina.material).forEach(([mat,v]) => { matEntrada[mat] = (matEntrada[mat]||0) + v; });
+    if (mina) {
+      somaMat(matEntrada, mina.material);
+      somaMat(matPatioCard, mina.material);
+      somaMat(matPatioCard, mina.matOutros);
+      foraPatio += Object.values(mina.matOutros||{}).reduce((a,b)=>a+b, 0);
+    }
 
     const vf = MINA_FORMIGUINHA[d];
-    if (vf) { totalEntradaFormig += (vf.entrada||0); if (vf.material) Object.entries(vf.material).forEach(([mat,v]) => { matFormig[mat] = (matFormig[mat]||0) + v; }); }
+    if (vf) { totalEntradaFormig += (vf.entradaSemRet||0); foraFormig += (vf.entrada||0) - (vf.entradaSemRet||0); somaMat(matFormig, vf.material); }
     const vc = MINA_PATIOC2[d];
-    if (vc) { totalEntradaC2 += (vc.entrada||0); if (vc.material) Object.entries(vc.material).forEach(([mat,v]) => { matC2[mat] = (matC2[mat]||0) + v; }); }
+    if (vc) { totalEntradaC2 += (vc.entradaSemRet||0); foraC2 += (vc.entrada||0) - (vc.entradaSemRet||0); somaMat(matC2, vc.material); }
     const vb = MINA_BRITADOS[d];
-    if (vb) { totalEntradaBrit += (vb.entrada||0); if (vb.material) Object.entries(vb.material).forEach(([mat,v]) => { matBrit[mat] = (matBrit[mat]||0) + v; }); }
+    if (vb) { totalEntradaBrit += (vb.entradaSemRet||0); foraBrit += (vb.entrada||0) - (vb.entradaSemRet||0); somaMat(matBrit, vb.material); }
   });
 
-  function setEntradaKPI(elId, subId, matElId, totalT, matMap) {
+  function setEntradaKPI(elId, subId, matElId, totalT, matMap, foraT) {
     const el = document.getElementById(elId);
     const sub = document.getElementById(subId);
     const matEl = document.getElementById(matElId);
     if (el) el.textContent = totalT>0 ? fmtT(totalT*1000) : '—';
-    if (sub) sub.textContent = todasDatas.length + ' dia(s) no período';
+    if (sub) sub.innerHTML = todasDatas.length + ' dia(s) no período'
+      + (foraT > 0.05 ? `<br><span style="font-size:10px;color:#888">retomada fora do total: ${fmtT(foraT*1000)}</span>` : '');
     if (matEl) matEl.innerHTML = matChipsQtdHTML(matMap);
   }
-  setEntradaKPI('mmKpiEntradaPatio',  'mmKpiEntradaPatioSub',  'mmMatEntradaPatio',  totalEntradaPatio,  matEntrada);
-  setEntradaKPI('mmKpiEntradaFormig', 'mmKpiEntradaFormigSub', 'mmMatEntradaFormig', totalEntradaFormig, matFormig);
-  setEntradaKPI('mmKpiEntradaC2',     'mmKpiEntradaC2Sub',     'mmMatEntradaC2',     totalEntradaC2,     matC2);
-  setEntradaKPI('mmKpiEntradaBrit',   'mmKpiEntradaBritSub',   'mmMatEntradaBrit',   totalEntradaBrit,   matBrit);
+  setEntradaKPI('mmKpiEntradaPatio',  'mmKpiEntradaPatioSub',  'mmMatEntradaPatio',  totalEntradaPatio,  matPatioCard, foraPatio);
+  setEntradaKPI('mmKpiEntradaFormig', 'mmKpiEntradaFormigSub', 'mmMatEntradaFormig', totalEntradaFormig, matFormig,    foraFormig);
+  setEntradaKPI('mmKpiEntradaC2',     'mmKpiEntradaC2Sub',     'mmMatEntradaC2',     totalEntradaC2,     matC2,        foraC2);
+  setEntradaKPI('mmKpiEntradaBrit',   'mmKpiEntradaBritSub',   'mmMatEntradaBrit',   totalEntradaBrit,   matBrit,      foraBrit);
 
   dc('mmDiarioChart');
   if (todasDatas.length) {
@@ -3657,6 +3774,145 @@ function renderMovMina() {
   }
 
   pizzaMaterial('mmPieMaterial', 'mmPieMaterialLegend', matEntrada);
+}
+
+// ══════════════════════════════════════════════════════════════
+// RETOMADA ENTRE PÁTIOS — todas as viagens com produto "RETOMADA ..."
+// (Pátio Alimentação → Britados, C2 → Britados, Britados → Alimentação...).
+// Fonte: MINA_RETOMADA, montado no parse da aba Movimentação Mina <Mês>.
+// ══════════════════════════════════════════════════════════════
+// "04 - ESTOQUE MINERIO - PATIO C2" → "PATIO C2"
+function nomeLocal(s) {
+  const p = String(s||'').split(' - ');
+  return p.length >= 3 && /^\d+$/.test(p[0].trim()) ? p.slice(2).join(' - ') : (s || '—');
+}
+
+function resetRetomada() {
+  const datas = MINA_RETOMADA.map(v => v.data).sort();
+  const iniEl = document.getElementById('rtIni');
+  const fimEl = document.getElementById('rtFim');
+  if (datas.length) {
+    setDataInputSync(iniEl, datas[0]);
+    setDataInputSync(fimEl, datas[datas.length-1]);
+  }
+  const selP = document.getElementById('rtProduto');
+  const selR = document.getElementById('rtRota');
+  if (selP) selP.value = '';
+  if (selR) selR.value = '';
+  renderRetomada();
+}
+
+function renderRetomada() {
+  if (!dadosCarregados()) return;
+  const periodoIni = (document.getElementById('rtIni')||{}).value || '';
+  const periodoFim = (document.getElementById('rtFim')||{}).value || '';
+  const selP = document.getElementById('rtProduto');
+  const selR = document.getElementById('rtRota');
+  const rotaDe = v => nomeLocal(v.origem) + ' → ' + nomeLocal(v.destino);
+
+  // Opções dos filtros = tudo que existe no mês (mantém a seleção atual)
+  function preencherSelect(sel, valores, rotuloTodos) {
+    if (!sel) return;
+    const atual = sel.value;
+    sel.innerHTML = `<option value="">${rotuloTodos}</option>` +
+      valores.map(v => `<option value="${v}">${v}</option>`).join('');
+    sel.value = valores.includes(atual) ? atual : '';
+  }
+  preencherSelect(selP, [...new Set(MINA_RETOMADA.map(v => v.produto))].sort(), 'Todos');
+  preencherSelect(selR, [...new Set(MINA_RETOMADA.map(rotaDe))].sort(), 'Todas');
+  const fProd = selP ? selP.value : '';
+  const fRota = selR ? selR.value : '';
+
+  const lista = MINA_RETOMADA
+    .filter(v => (!periodoIni || v.data>=periodoIni) && (!periodoFim || v.data<=periodoFim))
+    .filter(v => (!fProd || v.produto===fProd) && (!fRota || rotaDe(v)===fRota));
+
+  const total = lista.reduce((a,v)=>a+v.ton, 0);
+  const porProd = {}, porRota = {}, porDia = {};
+  lista.forEach(v => {
+    porProd[v.produto] = (porProd[v.produto]||0) + v.ton;
+    const k = v.origem + '|' + v.destino;
+    if (!porRota[k]) porRota[k] = { origem:v.origem, destino:v.destino, ton:0, viagens:0, mat:{} };
+    porRota[k].ton += v.ton; porRota[k].viagens += 1;
+    porRota[k].mat[v.produto] = (porRota[k].mat[v.produto]||0) + v.ton;
+    if (!porDia[v.data]) porDia[v.data] = {};
+    porDia[v.data][v.produto] = (porDia[v.data][v.produto]||0) + v.ton;
+  });
+  const dias = Object.keys(porDia).sort();
+  const rotas = Object.values(porRota).sort((a,b)=>b.ton-a.ton);
+
+  // ── KPIs ──
+  const set = (id, txt) => { const el = document.getElementById(id); if (el) el.innerHTML = txt; };
+  set('rtKpiTotal', total>0 ? fmtT(total*1000) : '—');
+  set('rtKpiTotalSub', dias.length + ' dia(s) com retomada');
+  const mt = document.getElementById('rtMatTotal'); if (mt) mt.innerHTML = matChipsQtdHTML(porProd);
+  set('rtKpiViagens', lista.length ? lista.length.toLocaleString('pt-BR') : '—');
+  set('rtKpiViagensSub', lista.length ? 'média ' + (total/lista.length).toLocaleString('pt-BR',{maximumFractionDigits:1}) + ' t/viagem' : '');
+  set('rtKpiMedia', dias.length ? fmtT(total/dias.length*1000) : '—');
+  set('rtKpiMediaSub', 'por dia com retomada');
+  if (rotas.length) {
+    set('rtKpiRota', nomeLocal(rotas[0].origem) + '<br>→ ' + nomeLocal(rotas[0].destino));
+    set('rtKpiRotaSub', fmtT(rotas[0].ton*1000) + ' (' + (rotas[0].ton/total*100).toFixed(0) + '%) · ' + rotas[0].viagens + ' viagens');
+  } else { set('rtKpiRota', '—'); set('rtKpiRotaSub', ''); }
+
+  // ── Tabela por rota ──
+  const fmt1 = v => v.toLocaleString('pt-BR', {minimumFractionDigits:1, maximumFractionDigits:1});
+  const body = document.getElementById('rtRotasBody');
+  if (body) {
+    body.innerHTML = rotas.length ? rotas.map(r => `<tr>
+        <td>${nomeLocal(r.origem)}</td><td>${nomeLocal(r.destino)}</td>
+        <td>${matChipsHTML(r.mat)}</td>
+        <td style="text-align:right">${r.viagens}</td>
+        <td style="text-align:right;font-weight:700">${fmt1(r.ton)}</td>
+        <td style="text-align:right">${(r.ton/total*100).toFixed(0)}%</td></tr>`).join('')
+      + `<tr><td colspan="3" style="font-weight:700;color:#e8a020">TOTAL</td>
+        <td style="text-align:right;font-weight:700;color:#e8a020">${lista.length}</td>
+        <td style="text-align:right;font-weight:700;color:#e8a020">${fmt1(total)}</td>
+        <td style="text-align:right;color:#e8a020">100%</td></tr>`
+      : '<tr><td colspan="6" style="color:#666;text-align:center">Nenhuma retomada no período</td></tr>';
+  }
+
+  // ── Lista de todas as viagens (mais recentes primeiro) ──
+  const lb = document.getElementById('rtListaBody');
+  const cnt = document.getElementById('rtListaCount');
+  if (cnt) cnt.textContent = '(' + lista.length + ' viagens)';
+  if (lb) {
+    const ord = [...lista].sort((a,b) => (b.data+b.hora).localeCompare(a.data+a.hora));
+    lb.innerHTML = ord.length ? ord.map(v => `<tr>
+        <td>${v.data.slice(8,10)}/${v.data.slice(5,7)}</td><td>${v.hora||'—'}</td>
+        <td>${v.equip||'—'}</td><td>${v.operador||'—'}</td>
+        <td>${nomeLocal(v.origem)}</td>
+        <td style="color:${corMaterial(v.produto)};font-weight:700">${v.produto}</td>
+        <td>${nomeLocal(v.destino)}</td>
+        <td style="text-align:right">${fmt1(v.ton)}</td></tr>`).join('')
+      : '<tr><td colspan="8" style="color:#666;text-align:center">Nenhuma retomada no período</td></tr>';
+  }
+
+  // ── Gráfico diário empilhado por produto ──
+  dc('rtDiarioChart');
+  if (dias.length) {
+    const prods = Object.keys(porProd).sort((a,b)=>porProd[b]-porProd[a]);
+    CI['rtDiarioChart'] = new Chart(document.getElementById('rtDiarioChart'), {
+      type: 'bar',
+      data: {
+        labels: dias.map(d=>d.slice(8,10)+'/'+d.slice(5,7)),
+        datasets: prods.map(p => ({ label:p, data:dias.map(d => +((porDia[d][p]||0).toFixed(1))), backgroundColor:corMaterial(p), borderRadius:2 }))
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins: {
+          legend: { display:true, position:'top', labels:{color:'#ccc',font:{size:10},boxWidth:12} },
+          tooltip: { backgroundColor:'#131620', callbacks:{ label:c=>`${c.dataset.label}: ${c.parsed.y.toLocaleString('pt-BR')} t` } }
+        },
+        scales: {
+          x: { stacked:true, ticks:{color:'#ccc',font:{size:10}}, grid:{display:false} },
+          y: { stacked:true, ticks:{color:'#ddd',font:{size:10}}, grid:{color:'rgba(255,255,255,0.06)'} }
+        }
+      }
+    });
+  }
+
+  pizzaMaterial('rtPieMaterial', 'rtPieMaterialLegend', porProd);
 }
 
 // Alguns navegadores não sincronizam a exibição visual de um <input type="date">
